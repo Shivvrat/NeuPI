@@ -17,6 +17,14 @@ class SumProductNetwork(nn.Module):
         :param device: Device to perform computations ('cpu' or 'cuda:0').
         :param depth_features: Depth of the features to be used for the input features of NN (defaults to 1).
         :param approx: Boolean flag for approximation method usage (defaults to False).
+
+        Note: For now, models trained with DeeProb-kit are supported. (https://github.com/deeprob-org/deeprob-kit). Other libraries can be supported in by rewriting the get_distributions and preprocess_links functions.
+
+        Example:
+        ```
+        from neupi.pm.pc.spn import SumProductNetwork
+        spn = SumProductNetwork("path/to/spn.json")
+        ```
         """
         super(SumProductNetwork, self).__init__()
         with open(json_file) as f:

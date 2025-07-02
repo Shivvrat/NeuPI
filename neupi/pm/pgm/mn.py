@@ -15,6 +15,14 @@ class MarkovNetwork(nn.Module):
     Args:
         uai_file (str): Path to the .uai file defining the Markov Network.
         device (str or torch.device): The device to perform computations on ('cpu' or 'cuda').
+
+    Note: For now, models from the UAI format are supported. Other formats can be supported in by rewriting the UAIParser class.
+
+    Example:
+    ```
+    from neupi.pm.pgm.mn import MarkovNetwork
+    mn = MarkovNetwork("path/to/mn.uai")
+    ```
     """
 
     def __init__(self, uai_file: str, device: str = "cpu"):
