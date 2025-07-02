@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=70.0", "cython>=3.0.11", "numpy>=1.26", "torch>=2.3.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neupi"
+version = "0.2.0"
+authors = [
+  { name="Shivvrat Arya", email="shivvrat.arya@utdallas.edu" },
+]
+description = "A library of neural solvers for fast and accurate probabilistic inference."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.3.0", # Base requirement, defaults to CPU-only if a GPU version isn't already installed.
+    "cython>=3.0.11",
+    "setuptools>=70.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/shivvrat/neupi"
+Issues = "https://github.com/shivvrat/neupi/issues"
+
+# Defines optional sets of dependencies.
+# A user can install them with `pip install neupi[gpu]`.
+[project.optional-dependencies]
+# NOTE: Specifying a GPU-enabled PyTorch build directly here is not robust
+# because the required package depends on the user's specific CUDA driver.
+# The standard practice is for the user to install PyTorch with GPU support
+# manually, following instructions from the official PyTorch website.
+# This 'gpu' extra serves as a marker and for potential future use.
+gpu = []
+
+# This section tells setuptools to find the 'neupi' package in the current directory.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["neupi*"]
