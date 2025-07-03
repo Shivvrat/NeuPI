@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=70.0", "cython>=3.1.2", "numpy>=1.24"]
+requires = ["setuptools>=70.0", "cython>=3.1.2", "numpy>=1.24", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -59,7 +59,8 @@ PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu"
 [tool.cibuildwheel]
 # Skip all PyPy builds, as they are failing due to the Cython C-API issue.
 # This allows us to still build and release wheels for all CPython versions.
-skip = "pp* *i686* *musllinux*"
+skip = "pp* *i686* *musllinux* *-win* *-macosx*"
+
 
 [tool.cibuildwheel.linux]
 # Build only for the x86_64 architecture on Linux, skipping i686.
