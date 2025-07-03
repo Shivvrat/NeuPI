@@ -18,7 +18,21 @@ class SinglePassInferenceEngine(BaseInferenceModule):
 
     Args:
         model (torch.nn.Module): The trained neural network model.
-        device (str): The device to run inference on ('cpu' or 'cuda').
+
+    References
+    ----------
+    Arya, S., Rahman, T., & Gogate, V. (2025).
+    SINE: Scalable MPE inference for probabilistic graphical models using advanced neural embeddings.
+    AISTATS 2025. https://openreview.net/forum?id=6tZxEVlpnL
+
+    Arya, S., Rahman, T., & Gogate, V. (2024).
+    Learning to Solve the Constrained Most Probable Explanation Task in Probabilistic Graphical Models.
+    arXiv preprint arXiv:2404.11606. https://arxiv.org/abs/2404.11606
+
+    Arya, S., Rahman, T., & Gogate, V. (2024).
+    Neural Network Approximators for Marginal MAP in Probabilistic Circuits.
+    Proceedings of the AAAI Conference on Artificial Intelligence, 38(10), 10918–10926.
+    https://doi.org/10.1609/aaai.v38i10.28966
     """
 
     def __init__(self, model: torch.nn.Module, discretizer: torch.nn.Module, device: str = "cpu"):

@@ -26,6 +26,11 @@ class ITSELF_Engine(BaseInferenceModule):
         refinement_lr (float): The learning rate for the test-time optimizer.
         refinement_steps (int): The number of optimization steps to perform per instance.
         device (str): The device to run inference on ('cpu' or 'cuda').
+    References
+    ----------
+    Arya, S., Rahman, T., & Gogate, V. G. (2024).
+    A neural network approach for efficiently answering most probable explanation queries in probabilistic models.
+    NeurIPS 2024. https://openreview.net/forum?id=ufPPf9ghzP
     """
 
     def __init__(

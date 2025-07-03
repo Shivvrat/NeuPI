@@ -15,6 +15,14 @@ class ThresholdDiscretizer(BaseDiscretizer):
     Args:
         threshold (float): The threshold value. Values >= threshold will be 1,
                            and values < threshold will be 0. Defaults to 0.5.
+
+    References
+    ----------
+    Arya, S., Rahman, T., & Gogate, V. (2024). Learning to Solve the Constrained Most Probable Explanation Task in Probabilistic Graphical Models. arXiv preprint arXiv:2404.11606. https://arxiv.org/abs/2404.11606
+
+    Arya, S., Rahman, T., & Gogate, V. (2024). Neural Network Approximators for Marginal MAP in Probabilistic Circuits. Proceedings of the AAAI Conference on Artificial Intelligence, 38(10), 10918–10926. https://doi.org/10.1609/aaai.v38i10.28966
+
+    Arya, S., Rahman, T., & Gogate, V. G. (2024). A neural network approach for efficiently answering most probable explanation queries in probabilistic models. NeurIPS 2024. https://openreview.net/forum?id=ufPPf9ghzP
     """
 
     def __init__(self, threshold: float = 0.5):
