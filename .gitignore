@@ -61,3 +61,4 @@ venv.bak/
 .idea/
 .vscode/
 *.swp
+*nn_old.py
