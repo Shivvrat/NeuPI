@@ -4,6 +4,10 @@ NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Mo
 
 This approach eliminates the need for labeled training data, enabling neural networks to learn to solve tasks like Most Probable Explanation (MPE) by directly optimizing for the log-likelihood of their proposed solutions.
 
+## Documentation
+
+Documentation is available at [https://neupi.readthedocs.io/en/latest/](https://neupi.readthedocs.io/en/latest/).
+
 ## Key Features
 
 * **Self-Supervised Training**: Train neural surrogates using only the PGM definition—no labeled data required.
@@ -32,7 +36,7 @@ First, ensure you have PyTorch installed (with a GPU version if you want to use 
 
 ```bash
 # Clone the repository
-git clone [https://github.com/Shivvrat/NeuPI](https://github.com/Shivvrat/NeuPI)
+git clone https://github.com/Shivvrat/NeuPI
 cd NeuPI
 
 # Install the library in editable mode

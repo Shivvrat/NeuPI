@@ -13,12 +13,8 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # Build on all major platforms
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Build Linux wheels
+    runs-on: ubuntu-latest # Run only on Linux
 
     steps:
       - name: Checkout repository
@@ -34,15 +30,12 @@ jobs:
 
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
-        env:
-          # Explicitly skip unsupported architectures.
-          # This is more reliable than relying on pyproject.toml in some CI environments.
-          CIBW_SKIP: "pp* *i686* *musllinux*"
+        # The configuration in pyproject.toml will be used automatically.
 
       - name: Store wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: linux-wheels
           path: ./wheelhouse
 
   publish_wheels:
@@ -61,13 +54,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          # The pattern matches the artifact names from the build jobs
-          pattern: wheels-*
+          # The pattern matches the artifact name from the build job
+          pattern: linux-wheels
           merge-multiple: true
 
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # The 'dist' directory now contains all the wheels from all OSs
           packages-dir: dist/
 
