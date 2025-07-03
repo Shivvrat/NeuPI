@@ -35,11 +35,9 @@ jobs:
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
         env:
-          # This is the crucial step: skip all PyPy builds.
-          # The "*" is a wildcard, so this skips pp38, pp39, etc.
-          CIBW_SKIP: "pp*"
-          # To build for ARM on macOS, you can add:
-          # CIBW_ARCHS_MACOS: "x86_64 arm64"
+          # Explicitly skip unsupported architectures.
+          # This is more reliable than relying on pyproject.toml in some CI environments.
+          CIBW_SKIP: "pp* *i686* *musllinux*"
 
       - name: Store wheels
         uses: actions/upload-artifact@v4
