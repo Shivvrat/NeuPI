@@ -8,6 +8,10 @@ __version__ = "0.1.0"
 # Discretizers
 from .discretize.threshold import ThresholdDiscretizer
 
+# Embeddings
+from .embedding.discrete import DiscreteEmbedder
+from .embedding.identity import IdentityEmbedding
+
 # Inference modules
 from .inference.itself import ITSELF_Engine
 from .inference.single_pass import SinglePassInferenceEngine
@@ -40,6 +44,8 @@ __all__ = [
     "SinglePassInferenceEngine",
     "ITSELF_Engine",
     "ThresholdDiscretizer",
+    "DiscreteEmbedder",
+    "IdentityEmbedding",
     "__version__",
     "mpe_log_likelihood_loss",
 ]

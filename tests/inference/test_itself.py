@@ -7,6 +7,7 @@ import torch
 # Using 'pm_ssl' and 'models.nn' as per your provided file structure
 from neupi import (
     MLP,
+    DiscreteEmbedder,
     ITSELF_Engine,
     MarkovNetwork,
     SelfSupervisedTrainer,
@@ -34,10 +35,11 @@ def dummy_dataloader(mn_evaluator):
     """Creates a dummy DataLoader for training and inference."""
     num_samples = 8
     num_vars = mn_evaluator.num_variables
-    inputs = torch.rand(num_samples, num_vars, device=DEVICE)
     evidence_data = torch.randint(0, 2, (num_samples, num_vars), device=DEVICE, dtype=torch.float32)
     evidence_mask = torch.rand(num_samples, num_vars, device=DEVICE) > 0.5
-    dataset = TensorDataset(inputs, evidence_data, evidence_mask)
+    query_mask = ~evidence_mask
+    unobs_mask = torch.zeros_like(evidence_mask, dtype=torch.bool)
+    dataset = TensorDataset(evidence_data, evidence_mask, query_mask, unobs_mask)
     return DataLoader(dataset, batch_size=4)
 
 
@@ -45,7 +47,8 @@ def dummy_dataloader(mn_evaluator):
 def random_model(mn_evaluator):
     """Provides a randomly initialized MLP model."""
     num_vars = mn_evaluator.num_variables
-    return MLP(input_size=num_vars, hidden_sizes=[16], output_size=num_vars).to(DEVICE)
+    embedding = DiscreteEmbedder(num_vars)
+    return MLP(hidden_sizes=[16], output_size=num_vars, embedding=embedding).to(DEVICE)
 
 
 @pytest.fixture(scope="module")
@@ -58,7 +61,8 @@ def discretizer():
 def pretrained_model(mn_evaluator, dummy_dataloader):
     """Provides a model that has been pre-trained for a few epochs."""
     num_vars = mn_evaluator.num_variables
-    model = MLP(input_size=num_vars, hidden_sizes=[16], output_size=num_vars).to(DEVICE)
+    embedding = DiscreteEmbedder(num_vars)
+    model = MLP(hidden_sizes=[16], output_size=num_vars, embedding=embedding).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     trainer = SelfSupervisedTrainer(
         model=model,

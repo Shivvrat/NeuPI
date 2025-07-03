@@ -61,12 +61,13 @@ class SinglePassInferenceEngine(BaseInferenceModule):
         all_final_assignments: List[torch.Tensor] = []
 
         for batch_data in dataloader:
-            inputs, evidence_data, evidence_mask = batch_data
-            inputs = inputs.to(self.device)
+            evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
             evidence_data = evidence_data.to(self.device)
             evidence_mask = evidence_mask.to(self.device)
+            query_mask = query_mask.to(self.device)
+            unobs_mask = unobs_mask.to(self.device)
 
-            raw_predictions = self.model(inputs)
+            raw_predictions = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
             prob_predictions = torch.sigmoid(raw_predictions)
             final_assignments = apply_evidence(prob_predictions, evidence_data, evidence_mask)
             # Apply the discretizer to the final assignments

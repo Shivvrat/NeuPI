@@ -1,9 +1,8 @@
 import torch
-from torch.utils.data import DataLoader
-
 from neupi.core.trainer import BaseTrainer
 from neupi.registry import register
 from neupi.utils.pgm_utils import apply_evidence
+from torch.utils.data import DataLoader
 
 
 @register("trainer")
@@ -42,14 +41,15 @@ class SelfSupervisedTrainer(BaseTrainer):
         """Performs a single training step on a batch of data."""
         # Unpack batch data (assuming a tuple of tensors)
         # You might need to adjust this based on your DataLoader's output
-        inputs, evidence_data, evidence_mask = batch_data
-        inputs = inputs.to(self.device)
+        evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
         evidence_data = evidence_data.to(self.device)
         evidence_mask = evidence_mask.to(self.device)
+        query_mask = query_mask.to(self.device)
+        unobs_mask = unobs_mask.to(self.device)
 
         # Forward pass
         self.model.train()
-        raw_predictions = self.model(inputs)
+        raw_predictions = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
 
         # Apply a sigmoid to get probabilities in the range [0, 1]
         predictions = torch.sigmoid(raw_predictions)
@@ -86,5 +86,3 @@ class SelfSupervisedTrainer(BaseTrainer):
             print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}")
 
         return self.model
-
-    # You can add a similar `validate` method here for a validation loop.

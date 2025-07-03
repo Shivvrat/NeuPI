@@ -4,6 +4,7 @@ import pytest
 import torch
 from neupi import (
     MLP,
+    DiscreteEmbedder,
     MarkovNetwork,
     SelfSupervisedTrainer,
     SinglePassInferenceEngine,
@@ -31,14 +32,16 @@ def trained_model():
 
     num_samples = 16
     num_vars = mn_evaluator.num_variables
-    inputs = torch.rand(num_samples, num_vars, device=DEVICE)
     evidence_data = torch.randint(0, 2, (num_samples, num_vars), device=DEVICE, dtype=torch.float32)
     evidence_mask = torch.rand(num_samples, num_vars, device=DEVICE) > 0.5
-    dataset = TensorDataset(inputs, evidence_data, evidence_mask)
+    query_mask = ~evidence_mask
+    unobs_mask = torch.zeros_like(evidence_mask, dtype=torch.bool)
+    dataset = TensorDataset(evidence_data, evidence_mask, query_mask, unobs_mask)
     dataloader = DataLoader(dataset, batch_size=4)
 
     # 2. Setup model and trainer
-    model = MLP(input_size=num_vars, hidden_sizes=[16], output_size=num_vars).to(DEVICE)
+    embedding = DiscreteEmbedder(num_vars)
+    model = MLP(hidden_sizes=[16], output_size=num_vars, embedding=embedding).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     trainer = SelfSupervisedTrainer(
@@ -62,10 +65,11 @@ def test_inference_engine_output(trained_model, discretizer):
     num_samples = 10
     # The number of variables is the output size of the trained model's final layer
     num_vars = trained_model.output_layer.out_features
-    inputs = torch.rand(num_samples, num_vars, device=DEVICE)
     evidence_data = torch.randint(0, 2, (num_samples, num_vars), device=DEVICE, dtype=torch.float32)
     evidence_mask = torch.rand(num_samples, num_vars, device=DEVICE) > 0.5
-    dataset = TensorDataset(inputs, evidence_data, evidence_mask)
+    query_mask = ~evidence_mask
+    unobs_mask = torch.zeros_like(evidence_mask, dtype=torch.bool)
+    dataset = TensorDataset(evidence_data, evidence_mask, query_mask, unobs_mask)
     dataloader = DataLoader(dataset, batch_size=5)
 
     # 2. Initialize and run the inference engine

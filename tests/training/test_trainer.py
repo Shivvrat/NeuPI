@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 import torch
-from neupi import MLP, MarkovNetwork, SelfSupervisedTrainer, mpe_log_likelihood_loss
+from neupi import (
+    MLP,
+    DiscreteEmbedder,
+    MarkovNetwork,
+    SelfSupervisedTrainer,
+    mpe_log_likelihood_loss,
+)
 from torch.utils.data import DataLoader, TensorDataset
 
 # Define the device for testing
@@ -25,16 +31,17 @@ def dummy_dataloader(mn_evaluator):
 
     # Create random data for the test
     # In a real scenario, inputs would be features derived from the PGM state.
-    # For this test, we use random tensors as placeholders.
-    inputs = torch.rand(num_samples, num_vars, device=DEVICE)
-
-    # The evidence data assignments (e.g., from sampled data)
+    # The evidence data assignments; the tensor needs to be of shape (num_samples, num_vars); we extract the evidence values using evidence_mask
     evidence_data = torch.randint(0, 2, (num_samples, num_vars), device=DEVICE, dtype=torch.float32)
 
     # A random mask where ~50% of variables are evidence
     evidence_mask = torch.rand(num_samples, num_vars, device=DEVICE) > 0.5
+    # make remaining variables query variables
+    query_mask = ~evidence_mask
+    # this is for MPE; so no unobserved variables
+    unobs_mask = torch.zeros_like(evidence_mask, dtype=torch.bool)
 
-    dataset = TensorDataset(inputs, evidence_data, evidence_mask)
+    dataset = TensorDataset(evidence_data, evidence_mask, query_mask, unobs_mask)
     return DataLoader(dataset, batch_size=4)
 
 
@@ -46,14 +53,14 @@ def test_trainer_decreases_loss(mn_evaluator, dummy_dataloader):
     indicating that the model is learning and the backpropagation is working.
     """
     num_vars = mn_evaluator.num_variables
-
     # 1. Initialize the Model (Neural Network)
+    embedding = DiscreteEmbedder(num_vars)
     model = MLP(
-        input_size=num_vars,
         hidden_sizes=[32, 16],
         output_size=num_vars,
         hidden_activation="relu",
         use_batchnorm=True,
+        embedding=embedding,
     ).to(DEVICE)
 
     # 2. Initialize the Optimizer

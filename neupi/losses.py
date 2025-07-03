@@ -12,6 +12,8 @@ def mpe_log_likelihood_loss(
     optimizers minimize loss, this function returns the *negative* of the summed
     log-likelihoods.
 
+    Note: The same loss functions can be used for MMAP inference over PCs (no other PMs are supported yet for MMAP). For MMAP, make the unobserved variables -1s and the correct scores will be computed by the evaluator.
+
     Args:
         predictions (torch.Tensor): A batch of binary assignments (0s or 1s) predicted by
                                     a neural network. Shape: (batch_size, num_variables).

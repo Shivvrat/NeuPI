@@ -63,10 +63,11 @@ class ITSELF_Engine(BaseInferenceModule):
         all_final_assignments: List[torch.Tensor] = []
 
         for batch_data in dataloader:
-            inputs, evidence_data, evidence_mask = batch_data
-            inputs = inputs.to(self.device)
+            evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
             evidence_data = evidence_data.to(self.device)
             evidence_mask = evidence_mask.to(self.device)
+            query_mask = query_mask.to(self.device)
+            unobs_mask = unobs_mask.to(self.device)
 
             temp_model = copy.deepcopy(self.base_model)
             temp_model.train()
@@ -76,7 +77,7 @@ class ITSELF_Engine(BaseInferenceModule):
             for _ in range(self.refinement_steps):
                 optimizer.zero_grad()
 
-                raw_preds = temp_model(inputs)
+                raw_preds = temp_model(evidence_data, evidence_mask, query_mask, unobs_mask)
                 prob_preds = torch.sigmoid(raw_preds)
                 final_assigns = apply_evidence(prob_preds, evidence_data, evidence_mask)
 
@@ -89,7 +90,7 @@ class ITSELF_Engine(BaseInferenceModule):
             # --- Final Evaluation (No Gradients Needed) ---
             with torch.no_grad():
                 temp_model.eval()
-                final_raw = temp_model(inputs)
+                final_raw = temp_model(evidence_data, evidence_mask, query_mask, unobs_mask)
                 final_prob = torch.sigmoid(final_raw)
                 final_assignment = apply_evidence(final_prob, evidence_data, evidence_mask)
                 final_assignment = self.discretizer(final_assignment)
