@@ -26,7 +26,7 @@ def discretizer():
 def trained_model():
     """Pytest fixture to train a model for a few epochs and return it."""
     # 1. Setup PGM evaluator and dummy data
-    uai_path = Path(__file__).parent / "networks/mn/Grids_17.uai"
+    uai_path = Path(__file__).parent.parent / "networks/mn/Grids_17.uai"
     mn_evaluator = MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
 
     num_samples = 16
@@ -50,7 +50,7 @@ def trained_model():
     )
 
     # 3. Train for a couple of epochs and get the trained model
-    final_model = trainer.train(dataloader, num_epochs=2)
+    final_model = trainer.fit(dataloader, num_epochs=2)
     return final_model
 
 

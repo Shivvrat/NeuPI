@@ -3,8 +3,12 @@ from typing import List, Optional
 import torch
 import torch.nn as nn
 
+from neupi.core.model import BaseNNModel
+from neupi.registry import register
 
-class MLP(nn.Module):
+
+@register("nn_model")
+class MLP(BaseNNModel):
     """
     A flexible Multi-Layer Perceptron (MLP) network.
 

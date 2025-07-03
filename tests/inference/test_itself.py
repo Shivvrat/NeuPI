@@ -23,7 +23,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 @pytest.fixture(scope="module")
 def mn_evaluator():
     """Loads a Markov Network evaluator for all tests in this module."""
-    uai_path = Path(__file__).parent / "networks/mn/Grids_17.uai"
+    uai_path = Path(__file__).parent.parent / "networks/mn/Grids_17.uai"
     return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
 
 
@@ -66,7 +66,7 @@ def pretrained_model(mn_evaluator, dummy_dataloader):
         device=DEVICE,
     )
     # Train for 2 epochs to get a 'pre-trained' state
-    final_model = trainer.train(dummy_dataloader, num_epochs=2)
+    final_model = trainer.fit(dummy_dataloader, num_epochs=2)
     return final_model
 
 

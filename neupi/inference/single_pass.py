@@ -1,11 +1,15 @@
 from typing import Dict, List
 
 import torch
-from neupi.utils.pgm_utils import apply_evidence
 from torch.utils.data import DataLoader
 
+from neupi.core.inference_module import BaseInferenceModule
+from neupi.registry import register
+from neupi.utils.pgm_utils import apply_evidence
 
-class SinglePassInferenceEngine:
+
+@register("inference_module")
+class SinglePassInferenceEngine(BaseInferenceModule):
     """
     Handles the inference process for a trained neural PGM solver.
 

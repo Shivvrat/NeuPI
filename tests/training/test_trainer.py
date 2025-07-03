@@ -18,7 +18,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def mn_evaluator():
     """Pytest fixture to load a Markov Network evaluator for the tests."""
     # Using a test file from your provided structure
-    uai_path = Path(__file__).parent / "networks/mn/Grids_17.uai"
+    uai_path = Path(__file__).parent.parent / "networks/mn/Grids_17.uai"
     return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
 
 
@@ -83,7 +83,7 @@ def test_trainer_decreases_loss(mn_evaluator, dummy_dataloader):
     initial_batch = next(iter(dummy_dataloader))
 
     for i in range(num_steps):
-        loss = trainer.train_step(initial_batch)
+        loss = trainer.step(initial_batch)
         if i == 0:
             initial_loss = loss
         if i == num_steps - 1:

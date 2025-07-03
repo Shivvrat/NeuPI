@@ -1,10 +1,13 @@
 import torch
 from torch import nn
 
+from neupi.core.model import BaseProbModel
+from neupi.registry import register
 from ..io.uai_reader_cython import UAIParser
 
 
-class MarkovNetwork(nn.Module):
+@register("prob_model")
+class MarkovNetwork(BaseProbModel):
     """
     A PyTorch module to evaluate the log-likelihood of assignments in a binary Markov Network.
 

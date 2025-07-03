@@ -2,11 +2,15 @@ import copy
 from typing import Dict, List, Type
 
 import torch
-from neupi.utils.pgm_utils import apply_evidence
 from torch.utils.data import DataLoader
 
+from neupi.core.inference_module import BaseInferenceModule
+from neupi.registry import register
+from neupi.utils.pgm_utils import apply_evidence
 
-class ITSELF_Engine:
+
+@register("inference_module")
+class ITSELF_Engine(BaseInferenceModule):
     """
     Handles Inference Time Self-Supervised Training (ITSELF).
 

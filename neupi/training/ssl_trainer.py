@@ -1,9 +1,13 @@
 import torch
-from neupi.utils.pgm_utils import apply_evidence
 from torch.utils.data import DataLoader
 
+from neupi.core.trainer import BaseTrainer
+from neupi.registry import register
+from neupi.utils.pgm_utils import apply_evidence
 
-class SelfSupervisedTrainer:
+
+@register("trainer")
+class SelfSupervisedTrainer(BaseTrainer):
     """
     A trainer for self-supervised learning of neural PGM solvers.
 
@@ -34,7 +38,7 @@ class SelfSupervisedTrainer:
         self.optimizer = optimizer
         self.device = device
 
-    def train_step(self, batch_data):
+    def step(self, batch_data):
         """Performs a single training step on a batch of data."""
         # Unpack batch data (assuming a tuple of tensors)
         # You might need to adjust this based on your DataLoader's output
@@ -64,7 +68,7 @@ class SelfSupervisedTrainer:
 
         return loss.item()
 
-    def train(self, dataloader: DataLoader, num_epochs: int):
+    def fit(self, dataloader: DataLoader, num_epochs: int):
         """
         Runs the full training loop for a specified number of epochs.
 
@@ -75,7 +79,7 @@ class SelfSupervisedTrainer:
         for epoch in range(num_epochs):
             total_loss = 0
             for batch_data in dataloader:
-                loss = self.train_step(batch_data)
+                loss = self.step(batch_data)
                 total_loss += loss
 
             avg_loss = total_loss / len(dataloader)

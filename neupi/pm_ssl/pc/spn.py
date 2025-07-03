@@ -1,13 +1,21 @@
 import json
 
 import torch
+from neupi.core.model import BaseProbModel
+from neupi.registry import register
 from torch import nn
 
-from .spn_node_classes import BernoulliLeaf, ProductNode, SumNode
-from .spn_utils import get_distributions, preprocess_links
+from .spn_utils import (
+    BernoulliLeaf,
+    ProductNode,
+    SumNode,
+    get_distributions,
+    preprocess_links,
+)
 
 
-class SumProductNetwork(nn.Module):
+@register("prob_model")
+class SumProductNetwork(BaseProbModel):
     def __init__(self, json_file, device="cpu"):
         """
         Initialize the SumProductNetwork with configuration from a JSON file.

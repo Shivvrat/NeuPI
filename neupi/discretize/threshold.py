@@ -1,7 +1,11 @@
 import torch
 
+from neupi.core.discretizer import BaseDiscretizer
+from neupi.registry import register
 
-class ThresholdDiscretizer(torch.nn.Module):
+
+@register("discretizer")
+class ThresholdDiscretizer(BaseDiscretizer):
     """
     Discretizes a tensor of probabilities to binary assignments based on a threshold.
 

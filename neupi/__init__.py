@@ -1,7 +1,41 @@
+# neupi/__init__.py
+"""NeuPI: Neural-Probabilistic Inference Library"""
+
 # Expose the version of the package
 __version__ = "0.1.0"
 
-# Import key classes/functions to make them available at the top level
-# from .solvers import YourSolverClass
+# Expose the factory function as the main entry point
+# Discretizers
+from .discretize.threshold import ThresholdDiscretizer
 
-print("Welcome to NeuPI! Neural Probabilistic Inference package.")
+# Inference modules
+from .inference.itself import ITSELF_Engine
+from .inference.single_pass import SinglePassInferenceEngine
+
+# Neural models
+from .models.nn import MLP
+from .pm_ssl.nam.made import MADE
+
+# Probabilistic models
+from .pm_ssl.pc.spn import SumProductNetwork
+from .pm_ssl.pgm.mn import MarkovNetwork
+
+# Registry
+from .registry import get as factory
+
+# Trainers
+from .training.ssl_trainer import SelfSupervisedTrainer
+
+# Control what 'from neupi import *' imports
+__all__ = [
+    "factory",
+    "MarkovNetwork",
+    "SumProductNetwork",
+    "MADE",
+    "MLP",
+    "SelfSupervisedTrainer",
+    "SinglePassInferenceEngine",
+    "ITSELF_Engine",
+    "ThresholdDiscretizer",
+    "__version__",
+]

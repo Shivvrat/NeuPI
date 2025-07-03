@@ -4,9 +4,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # ------------------------------------------------------------------------------
+from neupi.core.model import BaseProbModel
+from neupi.registry import register
 
 
-class MaskedLinear(nn.Linear):
+@register("nn_model")
+class MaskedLinear(BaseProbModel):
     """same as Linear except has a configurable mask on the weights"""
 
     def __init__(self, in_features, out_features, bias=True):
