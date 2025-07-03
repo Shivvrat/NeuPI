@@ -81,4 +81,6 @@ class SelfSupervisedTrainer:
             avg_loss = total_loss / len(dataloader)
             print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}")
 
+        return self.model
+
     # You can add a similar `validate` method here for a validation loop.
