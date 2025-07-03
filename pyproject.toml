@@ -31,6 +31,7 @@ Issues = "https://github.com/Shivvrat/NeuPI/issues"
 
 # Defines optional sets of dependencies.
 # A user can install them with `pip install neupi[gpu]`.
+
 [project.optional-dependencies]
 # NOTE: Specifying a GPU-enabled PyTorch build directly here is not robust
 # because the required package depends on the user's specific CUDA driver.
@@ -38,6 +39,12 @@ Issues = "https://github.com/Shivvrat/NeuPI/issues"
 # manually, following instructions from the official PyTorch website.
 # This 'gpu' extra serves as a marker and for potential future use.
 gpu = []
+# Docs dependencies
+docs = [
+    "sphinx",
+    "furo",
+    "myst-parser"
+]
 
 # This section tells setuptools to find the 'neupi' package in the current directory.
 [tool.setuptools.packages.find]
