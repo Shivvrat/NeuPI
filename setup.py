@@ -17,8 +17,8 @@ extra_link_args = ["-fopenmp"]
 # We specify the exact path to the .pyx file and its corresponding module path.
 extensions = [
     Extension(
-        "neupi.pm.io.uai_reader_cython",
-        ["neupi/pm/io/uai_reader_cython.pyx"],
+        "neupi.pm_ssl.io.uai_reader_cython",
+        ["neupi/pm_ssl/io/uai_reader_cython.pyx"],
         include_dirs=[
             numpy.get_include(),
             # Use the modern, public PyTorch API to get C++ include paths

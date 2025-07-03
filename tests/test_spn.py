@@ -3,8 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-
-from neupi.pm.pc.spn import SumProductNetwork
+from neupi.pm_ssl import SumProductNetwork
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

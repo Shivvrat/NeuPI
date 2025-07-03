@@ -10,7 +10,7 @@ import torch
 from neupi.losses import mpe_log_likelihood_loss
 
 # Make sure neupi is installed and accessible
-from neupi.pm import MarkovNetwork
+from neupi.pm_ssl import MarkovNetwork
 
 # Define the device for testing
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
