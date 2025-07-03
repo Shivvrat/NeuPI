@@ -17,6 +17,6 @@ def test_cython_module_import():
     This is a crucial check for the build process.
     """
     try:
-        from neupi.pm_ssl.io import uai_reader_cython
+        from neupi.training.pm_ssl.io import uai_reader_cython
     except ImportError as e:
         pytest.fail(f"Failed to import the Cython module 'uai_reader_cython'. Error: {e}")
