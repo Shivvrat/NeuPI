@@ -48,3 +48,12 @@ include = ["neupi*"]
 PIP_ONLY_BINARY = "numpy"
 PIP_PREFER_BINARY = "1"
 PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu"
+
+[tool.cibuildwheel]
+# Skip all PyPy builds, as they are failing due to the Cython C-API issue.
+# This allows us to still build and release wheels for all CPython versions.
+skip = "pp* *i686* *musllinux*"
+
+[tool.cibuildwheel.linux]
+# Build only for the x86_64 architecture on Linux, skipping i686.
+archs = ["x86_64"]
