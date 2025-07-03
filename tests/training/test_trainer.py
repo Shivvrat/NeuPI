@@ -2,12 +2,7 @@ from pathlib import Path
 
 import pytest
 import torch
-from neupi.losses import mpe_log_likelihood_loss
-from neupi.models.nn import MLP
-
-# Import components from NeuPI library structure
-from neupi.pm_ssl import MarkovNetwork
-from neupi.training.ssl_trainer import SelfSupervisedTrainer
+from neupi import MLP, MarkovNetwork, SelfSupervisedTrainer, mpe_log_likelihood_loss
 from torch.utils.data import DataLoader, TensorDataset
 
 # Define the device for testing

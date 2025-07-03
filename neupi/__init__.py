@@ -12,11 +12,14 @@ from .discretize.threshold import ThresholdDiscretizer
 from .inference.itself import ITSELF_Engine
 from .inference.single_pass import SinglePassInferenceEngine
 
+# Loss Computation Functions
+from .losses import mpe_log_likelihood_loss
+
 # Neural models
 from .models.nn import MLP
-from .pm_ssl.nam.made import MADE
 
-# Probabilistic models
+# Probabilistic models (as losses)
+from .pm_ssl.nam.made import MADE
 from .pm_ssl.pc.spn import SumProductNetwork
 from .pm_ssl.pgm.mn import MarkovNetwork
 

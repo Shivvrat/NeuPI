@@ -2,16 +2,18 @@ from pathlib import Path
 
 import pytest
 import torch
-from neupi.discretize.threshold import ThresholdDiscretizer
-from neupi.inference.itself import ITSELF_Engine  # Used for comparison
-from neupi.inference.single_pass import SinglePassInferenceEngine  # The class to test
-from neupi.losses import mpe_log_likelihood_loss
-from neupi.models.nn import MLP
 
 # Import components from your NeuPI library structure
 # Using 'pm_ssl' and 'models.nn' as per your provided file structure
-from neupi.pm_ssl import MarkovNetwork
-from neupi.training.ssl_trainer import SelfSupervisedTrainer
+from neupi import (
+    MLP,
+    ITSELF_Engine,
+    MarkovNetwork,
+    SelfSupervisedTrainer,
+    SinglePassInferenceEngine,
+    ThresholdDiscretizer,
+    mpe_log_likelihood_loss,
+)
 from torch.utils.data import DataLoader, TensorDataset
 
 # Define the device for testing
