@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=70.0", "cython>=3.0.11", "numpy>=1.26", "torch>=2.3.0"]
+requires = ["setuptools>=70.0", "cython>=3.1.2", "numpy>=1.24"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "neupi"
-version = "0.2.0"
+version = "0.1.0"
 authors = [
   { name="Shivvrat Arya", email="shivvrat.arya@utdallas.edu" },
 ]
-description = "A library of neural solvers for fast and accurate probabilistic inference."
+description = "A library of neural solvers for fast and accurate inference over Probabilistic Models."
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -26,8 +26,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/shivvrat/neupi"
-Issues = "https://github.com/shivvrat/neupi/issues"
+Homepage = "https://github.com/Shivvrat/NeuPI"
+Issues = "https://github.com/Shivvrat/NeuPI/issues"
 
 # Defines optional sets of dependencies.
 # A user can install them with `pip install neupi[gpu]`.
@@ -43,3 +43,8 @@ gpu = []
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["neupi*"]
+
+[tool.cibuildwheel.environment]
+PIP_ONLY_BINARY = "numpy"
+PIP_PREFER_BINARY = "1"
+PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu"
