@@ -7,6 +7,7 @@ NeuPI: Neural Probabilistic Inference
    :maxdepth: 2
    :caption: Contents:
 
+   docs/paper_details.md
    api_reference
 
 .. include:: ../../README.md
