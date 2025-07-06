@@ -21,10 +21,15 @@ sphinx:
   configuration: docs/source/conf.py
 
 # Install the Python dependencies for your project
+# python:
+#   install:
+#     - method: pip
+#       path: .
+#       # Install the docs dependencies from your setup.py or pyproject.toml
+#       extra_requirements:
+#         - docs
+
+# Install the docs dependencies from your setup.py or pyproject.toml
 python:
   install:
-    - method: pip
-      path: .
-      # Install the docs dependencies from your setup.py or pyproject.toml
-      extra_requirements:
-        - docs
+    - requirements: docs/requirements.txt

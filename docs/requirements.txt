@@ -1,0 +1,11 @@
+#Sphinx and theme
+sphinx
+sphinx_rtd_theme
+
+# Required extensions for parsing and notebooks
+myst_parser
+nbsphinx
+ipykernel
+
+# Install the project itself so notebooks can import it
+.
