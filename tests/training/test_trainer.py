@@ -19,7 +19,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def mn_evaluator():
     """Pytest fixture to load a Markov Network evaluator for the tests."""
     # Using a test file from your provided structure
-    uai_path = Path(__file__).parent.parent / "networks/mn/Grids_17.uai"
+    uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
     return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
 
 

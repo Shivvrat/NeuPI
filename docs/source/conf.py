@@ -16,11 +16,12 @@ release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",
-    "myst_parser",
+    "sphinx.ext.autodoc",  # Automatically generate docs from docstrings
+    "sphinx.ext.napoleon",  # Support for Google and NumPy style docstrings
+    "sphinx.ext.viewcode",  # Add links to highlighted source code
+    "sphinx.ext.mathjax",  # Render math via JavaScript
+    "myst_parser",  # Parse Markdown files
+    "nbsphinx",  # Render Jupyter notebooks
 ]
 
 # MOCK IMPORTS: This is the crucial addition.
@@ -28,9 +29,17 @@ extensions = [
 # Read the Docs build environment, allowing the documentation to build correctly.
 autodoc_mock_imports = ["torch", "numpy", "neupi.training.pm_ssl.io.uai_reader_cython"]
 
-
 templates_path = ["_templates"]
 exclude_patterns = []
+
+# -- nbsphinx configuration --------------------------------------------------
+
+# Execute notebooks during the Sphinx build process.
+nbsphinx_execute = "always"
+
+# Do not stop the build on errors in notebooks.
+nbsphinx_allow_errors = True
+
 
 source_suffix = {
     ".rst": "restructuredtext",

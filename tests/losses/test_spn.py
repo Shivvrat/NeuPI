@@ -11,7 +11,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 @pytest.fixture(scope="module")
 def spn_model():
     """Pytest fixture to load the SumProductNetwork once for all tests."""
-    json_path = Path(__file__).parent.parent / "networks/spn/nltcs/spn.json"
+    json_path = Path(__file__).parent.parent.parent / "examples/networks/spn/nltcs/spn.json"
     return SumProductNetwork(json_file=str(json_path), device=DEVICE)
 
 

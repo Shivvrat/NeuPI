@@ -17,7 +17,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def pairwise_mn():
     """Pytest fixture to load the pairwise Markov Network once for all tests."""
     # Path to the test data file, relative to this test file
-    uai_path = Path(__file__).parent.parent / "networks/mn/Segmentation_12.uai"
+    uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Segmentation_12.uai"
     return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
 
 

@@ -6,14 +6,25 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.9"
+  # Install system packages required by nbsphinx
+  apt_packages:
+    - pandoc
+  # Define custom build steps
+  jobs:
+    pre_build:
+      # Copy the example notebooks to a location Sphinx can find them,
+      - "mkdir -p docs/source/examples"
+      - "cp -r examples docs/source/"
 
-# Point to the new location of the configuration file
+# Point to the Sphinx configuration file
 sphinx:
   configuration: docs/source/conf.py
 
+# Install the Python dependencies for your project
 python:
   install:
     - method: pip
       path: .
+      # Install the docs dependencies from your setup.py or pyproject.toml
       extra_requirements:
         - docs
