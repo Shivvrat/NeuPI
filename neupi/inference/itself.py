@@ -56,45 +56,69 @@ class ITSELF_Engine(BaseInferenceModule):
         self.device = device
 
     # The @torch.no_grad() decorator has been removed from the run method.
-    def run(self, dataloader: DataLoader) -> Dict[str, torch.Tensor]:
+    def run(self, data) -> Dict[str, torch.Tensor]:
         """
-        Performs test-time refinement for each batch in the dataloader.
+        Performs test-time refinement for each batch in the dataloader or a single batch.
+        Args:
+            data: Either a DataLoader or a tuple of (evidence_data, evidence_mask, query_mask, unobs_mask).
+        Returns:
+            Dict[str, torch.Tensor]: Final assignments.
         """
         all_final_assignments: List[torch.Tensor] = []
 
-        for batch_data in dataloader:
-            evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
+        # Determine if input is DataLoader or a single batch
+        if isinstance(data, DataLoader):
+            batch_iter = data
+        elif isinstance(data, (tuple, list)) and len(data) == 4:
+            batch_iter = [data]
+        else:
+            raise ValueError("Input must be a DataLoader or a tuple of four tensors.")
+
+        for batch_data in batch_iter:
+            final_assignment, _ = self._process_batch(batch_data)
+            all_final_assignments.append(final_assignment.cpu())
+
+        results = {"final_assignments": torch.cat(all_final_assignments, dim=0).int()}
+        return results
+
+    def _process_batch(self, batch_data, trained_model=None):
+        """
+        Process a single batch of data.
+        Args:
+            batch_data: A tuple of (evidence_data, evidence_mask, query_mask, unobs_mask).
+            trained_model: A model that has been trained on a subset of the data.
+        Returns:
+            final_assignment: The final assignment for the batch.
+            temp_model: The model that has been trained on the batch.
+        """
+        evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
+        if evidence_data.device != self.device:
             evidence_data = evidence_data.to(self.device)
             evidence_mask = evidence_mask.to(self.device)
             query_mask = query_mask.to(self.device)
             unobs_mask = unobs_mask.to(self.device)
 
+        if trained_model is None:
             temp_model = copy.deepcopy(self.base_model)
-            temp_model.train()
-            optimizer = self.optimizer_cls(temp_model.parameters(), lr=self.refinement_lr)
+        else:
+            temp_model = trained_model
 
-            # --- Test-Time Refinement Loop (Gradients are enabled here) ---
-            for _ in range(self.refinement_steps):
-                optimizer.zero_grad()
+        temp_model.train()
+        optimizer = self.optimizer_cls(temp_model.parameters(), lr=self.refinement_lr)
 
-                raw_preds = temp_model(evidence_data, evidence_mask, query_mask, unobs_mask)
-                prob_preds = torch.sigmoid(raw_preds)
-                final_assigns = apply_evidence(prob_preds, evidence_data, evidence_mask)
+        for _ in range(self.refinement_steps):
+            optimizer.zero_grad()
+            raw_preds = temp_model(evidence_data, evidence_mask, query_mask, unobs_mask)
+            prob_preds = torch.sigmoid(raw_preds)
+            final_assigns = apply_evidence(prob_preds, evidence_data, evidence_mask)
+            loss = self.loss_fn(final_assigns, self.pgm_evaluator)
+            loss.backward()
+            optimizer.step()
 
-                # The loss calculation is now part of the computation graph
-                loss = self.loss_fn(final_assigns, self.pgm_evaluator)
-                loss.backward()  # This will now work correctly
-                optimizer.step()
-            # --- End Refinement Loop ---
-
-            # --- Final Evaluation (No Gradients Needed) ---
-            with torch.no_grad():
-                temp_model.eval()
-                final_raw = temp_model(evidence_data, evidence_mask, query_mask, unobs_mask)
-                final_prob = torch.sigmoid(final_raw)
-                final_assignment = apply_evidence(final_prob, evidence_data, evidence_mask)
-                final_assignment = self.discretizer(final_assignment)
-                all_final_assignments.append(final_assignment.cpu())
-
-        results = {"final_assignments": torch.cat(all_final_assignments, dim=0).int()}
-        return results
+        with torch.no_grad():
+            temp_model.eval()
+            final_raw = temp_model(evidence_data, evidence_mask, query_mask, unobs_mask)
+            final_prob = torch.sigmoid(final_raw)
+            final_assignment = apply_evidence(final_prob, evidence_data, evidence_mask)
+            final_assignment = self.discretizer(final_assignment)
+        return final_assignment, temp_model

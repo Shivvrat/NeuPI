@@ -42,16 +42,15 @@ class SinglePassInferenceEngine(BaseInferenceModule):
         self.device = device
 
     @torch.no_grad()
-    def run(self, dataloader: DataLoader) -> Dict[str, torch.Tensor]:
+    def run(self, data) -> Dict[str, torch.Tensor]:
         """
-        Performs a forward pass on the entire dataset to get predictions.
+        Performs a forward pass on the entire dataset or a single batch to get predictions.
 
         Args:
-            dataloader (DataLoader): DataLoader providing the inference data.
-                Each batch should yield (inputs, evidence_data, evidence_mask).
+            data: Either a DataLoader or a tuple/list of (evidence_data, evidence_mask, query_mask, unobs_mask).
 
         Returns:
-            Dict[str, torch.Tensor]: A dictionary containing concatenated tensors for:
+            Dict[str, torch.Tensor]: Concatenated tensors for:
                 - 'raw_outputs': Raw logits from the network.
                 - 'prob_outputs': Probabilities after sigmoid activation.
                 - 'final_assignments': Final assignments after applying evidence.
@@ -60,26 +59,36 @@ class SinglePassInferenceEngine(BaseInferenceModule):
         all_prob_outputs: List[torch.Tensor] = []
         all_final_assignments: List[torch.Tensor] = []
 
-        for batch_data in dataloader:
-            evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
-            evidence_data = evidence_data.to(self.device)
-            evidence_mask = evidence_mask.to(self.device)
-            query_mask = query_mask.to(self.device)
-            unobs_mask = unobs_mask.to(self.device)
+        # Determine input type
+        if isinstance(data, DataLoader):
+            batch_iter = data
+        elif isinstance(data, (tuple, list)) and len(data) == 4:
+            batch_iter = [data]
+        else:
+            raise ValueError("Input must be a DataLoader or a tuple/list of four tensors.")
 
-            raw_predictions = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
-            prob_predictions = torch.sigmoid(raw_predictions)
-            final_assignments = apply_evidence(prob_predictions, evidence_data, evidence_mask)
-            # Apply the discretizer to the final assignments
-            final_assignments = self.discretizer(final_assignments)
-            all_raw_outputs.append(raw_predictions.cpu())
-            all_prob_outputs.append(prob_predictions.cpu())
-            all_final_assignments.append(final_assignments.cpu())
+        for batch_data in batch_iter:
+            raw, prob, final = self._process_batch(batch_data)
+            all_raw_outputs.append(raw.cpu())
+            all_prob_outputs.append(prob.cpu())
+            all_final_assignments.append(final.cpu())
 
-        # Concatenate all batch results into single tensors
         results = {
             "raw_outputs": torch.cat(all_raw_outputs, dim=0),
             "prob_outputs": torch.cat(all_prob_outputs, dim=0),
             "final_assignments": torch.cat(all_final_assignments, dim=0).int(),
         }
         return results
+
+    def _process_batch(self, batch_data):
+        evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
+        evidence_data = evidence_data.to(self.device)
+        evidence_mask = evidence_mask.to(self.device)
+        query_mask = query_mask.to(self.device)
+        unobs_mask = unobs_mask.to(self.device)
+
+        raw_predictions = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
+        prob_predictions = torch.sigmoid(raw_predictions)
+        final_assignments = apply_evidence(prob_predictions, evidence_data, evidence_mask)
+        final_assignments = self.discretizer(final_assignments)
+        return raw_predictions, prob_predictions, final_assignments
