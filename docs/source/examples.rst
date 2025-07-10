@@ -13,3 +13,4 @@ This section provides hands-on examples in the form of Jupyter notebooks that de
    ../../examples/losses.ipynb
    ../../examples/training.ipynb
    ../../examples/inference.ipynb
+   ../../examples/discretization.ipynb

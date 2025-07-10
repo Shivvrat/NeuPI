@@ -7,6 +7,7 @@ import sys
 # '..' goes to docs/, another '..' goes to the project root.
 sys.path.insert(0, os.path.abspath("../.."))
 
+import neupi
 
 # -- Project information -----------------------------------------------------
 project = "NeuPI"
@@ -22,6 +23,7 @@ extensions = [
     "sphinx.ext.mathjax",  # Render math via JavaScript
     "myst_parser",  # Parse Markdown files
     "nbsphinx",  # Render Jupyter notebooks
+    "sphinx.ext.autosummary",  # Generate auto-summaries for modules
 ]
 
 # MOCK IMPORTS: This is the crucial addition.

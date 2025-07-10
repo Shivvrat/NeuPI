@@ -8,9 +8,9 @@ NeuPI: Neural Probabilistic Inference
    :caption: Contents:
    :glob:
 
-   api_reference
    ../details/paper_details.md
    examples
+   api_reference
 
 .. use glob to include all markdown files in the docs directory
 .. include:: ../details/paper_details.md

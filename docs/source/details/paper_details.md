@@ -1,4 +1,4 @@
-### 📚 Core Methods Implemented in **NeuPI**
+### 📚 Methods Implemented in **NeuPI**
 
 #### 🔹 *Single-Pass Inference* & *Marginal MAP* in Probabilistic Circuits
 
