@@ -31,8 +31,13 @@ class ThresholdDiscretizer(BaseDiscretizer):
             raise ValueError("Threshold must be between 0.0 and 1.0.")
         self.threshold = threshold
 
-    @torch.no_grad()
-    def forward(self, prob_outputs: torch.Tensor) -> torch.Tensor:
+    def __call__(
+        self,
+        prob_outputs: torch.Tensor,
+        query_mask: torch.Tensor = None,
+        evidence_mask: torch.Tensor = None,
+        unobs_mask: torch.Tensor = None,
+    ) -> torch.Tensor:
         """
         Converts a tensor of probabilities to binary assignments.
 

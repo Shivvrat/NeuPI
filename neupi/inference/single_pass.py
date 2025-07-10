@@ -90,5 +90,7 @@ class SinglePassInferenceEngine(BaseInferenceModule):
         raw_predictions = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
         prob_predictions = torch.sigmoid(raw_predictions)
         final_assignments = apply_evidence(prob_predictions, evidence_data, evidence_mask)
-        final_assignments = self.discretizer(final_assignments)
+        final_assignments = self.discretizer(
+            final_assignments, query_mask, evidence_mask, unobs_mask
+        )
         return raw_predictions, prob_predictions, final_assignments

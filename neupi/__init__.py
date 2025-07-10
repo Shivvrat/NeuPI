@@ -6,6 +6,8 @@ __version__ = "0.1.0"
 
 # Expose the factory function as the main entry point
 # Discretizers
+from .discretize.kn import KNearestDiscretizer
+from .discretize.oauai import OAUAI
 from .discretize.threshold import ThresholdDiscretizer
 
 # Embeddings
@@ -43,6 +45,8 @@ __all__ = [
     "SelfSupervisedTrainer",
     "SinglePassInferenceEngine",
     "ITSELF_Engine",
+    "KNearestDiscretizer",
+    "OAUAI",
     "ThresholdDiscretizer",
     "DiscreteEmbedder",
     "IdentityEmbedding",

@@ -7,6 +7,7 @@ This approach eliminates the need for labeled training data, enabling neural net
 ## Documentation
 
 Documentation is available at [https://neupi.readthedocs.io/en/latest/](https://neupi.readthedocs.io/en/latest/).
+GitHub repository: [https://github.com/Shivvrat/NeuPI](https://github.com/Shivvrat/NeuPI).
 
 ## Key Features
 
@@ -47,9 +48,23 @@ pip install -e .
 
 Examples provided in the `examples` directory demonstrate:
 
-    1.  Computing the negative log-likelihood (loss) of a solution to a MPE query on a Markov Network (Probabilistic Graphical Models) and Sum-Product Network (Probabilistic Circuits).
+    1.  Computing the negative log-likelihood (loss) of a solution to a MPE query on a Markov Network (Probabilistic Graphical odels) and Sum-Product Network (Probabilistic Circuits).
     2.  Training a neural solver to solve MPE queries on a Markov Network and Sum-Product Network.
     3.  Performing inference with a trained neural solver on a Markov Network and Sum-Product Network.
+
+## Implemented Methods
+
+The core components of NeuPI are directly linked to our published research. The following table maps the key classes in the library to the papers that introduce the primary concepts.
+
+| Type          | Method / Component             | Primary Reference(s)                                                                                                                                                                                                                                                                                        | Description                                                                                                                                                  |
+| :------------ | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trainer + Loss | `SelfSupervisedTrainer`        | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf), [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf)                                                                                                                                                                                                                                                                              | The core training loop for learning a neural solver by minimizing the negative log-likelihood provided by a PGM/PC evaluator.                              |
+| Embedding | `DiscreteEmbedder`             | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf)                                                                                                                                                                                                                                                                        | A feature engineering module that creates rich (discrete) input representations from variable assignments and bucket information (evidence, query, unobserved).       |
+| Inference | `SinglePassInferenceEngine`    | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf) | A standard inference pipeline involving a single forward pass of the neural network to produce an MPE/MMAP solution.                                        |
+| Inference | `ITSELF_Engine`                | [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf)                                                                                                                                                                                                                                                                              | Implements **I**nference **T**ime **S**elf-**S**upervised **L**earning **F**ine-tuning, an advanced engine that optimizes the model for each specific test instance to refine solution quality. |
+| Discretizer | `KNearestDiscretizer`          | [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf)                                                                                                                                                                                                                                                                       | A sophisticated discretization method that performs a beam search over the k-nearest binary vectors to find a high-quality discrete assignment.            |
+| Discretizer | `OAUAI`   | [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf)                                                                                                                                                                                                                                                                       | A heuristic discretizer that uses an oracle to answer the query over the variables with the highest uncertainty (probabilities closest to 0.5).                |
+---
 
 ## Running Tests
 
