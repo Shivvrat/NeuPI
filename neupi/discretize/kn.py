@@ -1,7 +1,6 @@
 from typing import Callable
 
 import torch
-from tqdm import tqdm
 
 from neupi.core.discretizer import BaseDiscretizer
 from neupi.registry import register
@@ -65,7 +64,7 @@ class KNearestDiscretizer(BaseDiscretizer):
         query_indices = [torch.where(qm)[0] for qm in query_mask]
         best_assignments = prob_outputs.clone()
 
-        for i in tqdm(range(num_examples), desc="KNN Discretization", leave=False):
+        for i in range(num_examples):
             query_probs_np = prob_outputs[i, query_indices[i]].detach().cpu().numpy()
 
             # Get k candidate binary assignments from the Cython helper

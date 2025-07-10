@@ -2,7 +2,6 @@ import itertools
 from typing import Callable
 
 import torch
-from tqdm import tqdm
 
 from neupi.core.discretizer import BaseDiscretizer
 from neupi.registry import register
@@ -63,7 +62,7 @@ class OAUAI(BaseDiscretizer):
         final_assignments = (prob_outputs >= self.threshold).to(dtype)
         final_scores = self.pgm_evaluator(final_assignments)
 
-        for i in tqdm(range(num_examples), desc="Uncertainty Discretization", leave=False):
+        for i in range(num_examples):
             # Isolate the i-th sample
             sample_probs = prob_outputs[i]
             sample_query_mask = query_mask[i]
