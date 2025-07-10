@@ -7,13 +7,18 @@ import sys
 # '..' goes to docs/, another '..' goes to the project root.
 sys.path.insert(0, os.path.abspath("../.."))
 
-import neupi
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version  # For Python <3.8
+
+release = version("neupi")
+
 
 # -- Project information -----------------------------------------------------
 project = "NeuPI"
 copyright = "2025, Shivvrat Arya"
 author = "Shivvrat Arya"
-release = "1.0.0"
 
 # -- General configuration ---------------------------------------------------
 extensions = [
