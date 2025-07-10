@@ -1,6 +1,6 @@
 # .readthedocs.yaml
 
-version: 2
+version: 1.0.0
 
 build:
   os: ubuntu-22.04
