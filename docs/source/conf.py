@@ -7,12 +7,7 @@ import sys
 # '..' goes to docs/, another '..' goes to the project root.
 sys.path.insert(0, os.path.abspath("../.."))
 
-try:
-    from importlib.metadata import version
-except ImportError:
-    from importlib_metadata import version  # For Python <3.8
-
-release = version("neupi")
+release = "1.0.0"
 
 
 # -- Project information -----------------------------------------------------
