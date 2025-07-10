@@ -29,7 +29,12 @@ extensions = [
 # MOCK IMPORTS: This is the crucial addition.
 # It tells Sphinx to ignore these modules, which might fail to import in the
 # Read the Docs build environment, allowing the documentation to build correctly.
-autodoc_mock_imports = ["torch", "numpy", "neupi.training.pm_ssl.io.uai_reader_cython", "neupi.discretize.kn.cython_kn.kn_binary_vectors"]
+autodoc_mock_imports = [
+    "torch",
+    "numpy",
+    "neupi.training.pm_ssl.io.uai_reader_cython",
+    "neupi.discretize.cython_kn.kn_binary_vectors",
+]
 
 templates_path = ["_templates"]
 exclude_patterns = []
