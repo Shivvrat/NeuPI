@@ -1,5 +1,7 @@
 # NeuPI: A Library for Neural Probabilistic Inference
 
+![DOI](assets/neupi_doi.png)
+
 NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Models (PMs) using neural network surrogates. It provides a modular framework for training neural models in a self-supervised fashion, where the Probabilistic Model itself provides the supervisory signal.
 
 This approach eliminates the need for labeled training data, enabling neural networks to learn to solve tasks like Most Probable Explanation (MPE) by directly optimizing for the log-likelihood of their proposed solutions.
