@@ -1,9 +1,23 @@
-cff-version: 1.1.0
+cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
   - family-names: Arya
     given-names: Shivvrat
     orcid: https://orcid.org/0000-0002-9727-2533
-title: NeuPI: A Library for Neural Probabilistic Inference
-version: v1.0.0
-date-released: 2025-07-13
+  - family-names: Rahman
+    given-names: Tahrima
+  - family-names: Gogate
+    given-names: Vibhav
+title: "NeuPI: A Library for Neural Probabilistic Inference"
+version: 1.0.0
+date-released: 2025-01-15
+url: "https://github.com/Shivvrat/NeuPI"
+repository-code: "https://github.com/Shivvrat/NeuPI"
+license: MIT
+keywords:
+  - neural networks
+  - probabilistic inference
+  - machine learning
+  - probabilistic graphical models
+  - pytorch
+abstract: "NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Models using neural network surrogates. It provides a modular framework for training neural models in a self-supervised fashion, where the Probabilistic Model itself provides the supervisory signal."
