@@ -25,9 +25,7 @@ class SinglePassInferenceEngine(BaseInferenceModule):
     SINE: Scalable MPE inference for probabilistic graphical models using advanced neural embeddings.
     AISTATS 2025. https://openreview.net/forum?id=6tZxEVlpnL
 
-    Arya, S., Rahman, T., & Gogate, V. (2024).
-    Learning to Solve the Constrained Most Probable Explanation Task in Probabilistic Graphical Models.
-    arXiv preprint arXiv:2404.11606. https://arxiv.org/abs/2404.11606
+    Arya, S., Rahman, T., & Gogate, V. (2024). Learning to Solve the Constrained Most Probable Explanation Task in Probabilistic Graphical Models. Proceedings of The 27th International Conference on Artificial Intelligence and Statistics. International Conference on Artificial Intelligence and Statistics, PMLR, pp. 2791–2799. https://proceedings.mlr.press/v238/arya24b.html
 
     Arya, S., Rahman, T., & Gogate, V. (2024).
     Neural Network Approximators for Marginal MAP in Probabilistic Circuits.
