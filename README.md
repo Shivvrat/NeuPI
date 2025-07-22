@@ -3,7 +3,7 @@
 [![DOI](https://zenodo.org/badge/1012621004.svg)](https://doi.org/10.5281/zenodo.15873539)
 [![Build Status](https://github.com/Shivvrat/NeuPI/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/Shivvrat/NeuPI/actions/workflows/release.yml)
 
-NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Models (PMs) using neural network surrogates. It provides a modular framework for training neural models in a self-supervised fashion, where the Probabilistic Model itself provides the supervisory signal.
+NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Models (PMs) using neural network solvers. It provides a modular framework for training neural models in a self-supervised fashion, where the Probabilistic Model itself provides the supervisory signal.
 
 This approach eliminates the need for labeled training data, enabling neural networks to learn to solve tasks like Most Probable Explanation (MPE), Constrained MPE, and Marginal MAP by directly optimizing for the log-likelihood of their proposed solutions.
 
@@ -12,29 +12,6 @@ This approach eliminates the need for labeled training data, enabling neural net
 Documentation is available at [https://neupi.readthedocs.io/en/latest/](https://neupi.readthedocs.io/en/latest/).
 
 GitHub repository: [https://github.com/Shivvrat/NeuPI](https://github.com/Shivvrat/NeuPI).
-
-## Key Features
-
-* **Self-Supervised Training**: Train neural solvers using only the Probabilistic Model—no labeled data required.
-* **Advanced Inference**: Includes the **ITSELF** (`Inference Time Self-Supervised Training`) engine for test-time refinement, significantly improving inference accuracy.
-* **Modular Architecture**: A clean separation of components:
-    * **PGM Evaluators** (`MarkovNetwork`, `SumProductNetwork`)
-    * **Neural Solvers** (`MLP`)
-    * **Input Embedders** (`DiscreteEmbedder`)
-    * **Trainers** (`SelfSupervisedTrainer`)
-    * **Inference Engines** (`SinglePassInferenceEngine`, `ITSELF_Engine`)
-* **Extensible**: Easily register your own custom components using the built-in factory system.
-* **Efficient Backend**: Utilizes a high-performance Cython backend for parsing `.uai` files.
-
-## Core Workflow
-
-The core idea of NeuPI is to train a neural network to act as a fast approximator for a complex PM query. The workflow is as follows:
-
-1.  **Load a PM**: The negative log-likelihood of the PM acts as the (approximate) loss and evaluates the quality of solutions.
-2.  **Define a Neural Surrogate**: This is the "solver," which learns to generate high-quality solutions.
-3.  **Train**: Use the `SelfSupervisedTrainer` to train the solver. The loss is the negative log-likelihood of the solver's solutions, as computed by the PM.
-4.  **Infer**: Use the trained model with an `InferenceEngine` to answer new queries.
-5.  **Discretize**: Use a `Discretizer` to discretize the probabilities to binary assignments.
 
 ## Installation
 
@@ -58,15 +35,37 @@ cd NeuPI
 # Install the library in editable mode
 pip install -e .
 ```
+## Key Features
+
+* **Self-Supervised Training**: Train neural solvers using only the Probabilistic Model—no labeled data required.
+* **Advanced Inference**: Includes the **ITSELF** (`Inference Time Self-Supervised Training`) engine for test-time refinement, significantly improving inference accuracy.
+* **Discretization**: Includes a simple `ThresholdDiscretizer` and more advanced methods like `KNearestDiscretizer` and `OAUAI` to find higher-scoring final assignments.
+* **Extensible**: Easily register your own custom components using the built-in factory system.
 
 ## Quick Start
+The core idea of NeuPI is to train a neural network to act as a fast approximator for a complex PM query. The workflow is as follows:
+
+1. **Load a Probabilistic Model (PM)**: The first step is to load your probabilistic model (e.g., a `Markov Network` from a `.uai` file) using an evaluator class like `MarkovNetwork`. This object serves as the scoring function (log-likelihood); its primary role is to take a complete assignment of variables and compute its log-likelihood, which is the score we want to maximize. To train the neural network, we will use the negative log-likelihood of the PM as the loss function.
+
+2. **Define a Neural Solver**: Next, define a neural network architecture, such as the provided `MLP`, to act as the solver. This network will be trained to take an inference query (evidence variables, query variables, and evidence values) as input and produce a high-quality solution. You will also define a preprocessor, like `DiscreteEmbedder`, which transforms the raw query into a feature-rich tensor suitable for the neural network.
+
+3. **Train the Solver**: With the PM evaluator and neural solver defined, use the `SelfSupervisedTrainer`. The trainer orchestrates the learning process. In each step, it asks the neural network for a solution, passes that solution to the PM evaluator to get a score, and uses this score (specifically, the negative of the log-likelihood) as the loss signal to update the network's weights via backpropagation.
+
+4. **Perform Inference**: Once the model is trained, use an inference engine to solve new queries. The `SinglePassInferenceEngine` provides a fast solution by performing one forward pass. For higher accuracy, the `ITSELF_Engine`  can be used to perform test-time fine-tuning on each new query, leveraging the PM evaluator to refine the solution.
+
+5. **Discretize the Output**: The neural network outputs continuous probabilities. The final step is to convert these into a discrete binary (0/1) assignment using a `Discretizer`. You can use a simple `ThresholdDiscretizer` for speed or more advanced methods like `KNearestDiscretizer` and `OAUAI` to find higher-scoring final assignments.
+
+## Examples
 
 Examples provided in the `examples` directory demonstrate:
 
-    1.  Computing the negative log-likelihood (loss) of a solution to a MPE query on a Markov Network (Probabilistic Graphical odels) and Sum-Product Network (Probabilistic Circuits).
-    2.  Training a neural solver to solve MPE queries on a Markov Network and Sum-Product Network.
-    3.  Performing inference with a trained neural solver on a Markov Network and Sum-Product Network.
-    4.  Discretizing the probabilities to binary assignments. Advanced discretizers include `KNearestDiscretizer` and `OAUAI`.
+ **Example 1:** Computing the negative log-likelihood (loss) of a solution to a MPE query on a Markov Network (Probabilistic Graphical Models) and Sum-Product Network (Probabilistic Circuits).
+
+ **Example 2:** Training a neural solver to solve MPE queries on a Markov Network and Sum-Product Network.
+
+ **Example 3:** Performing inference with a trained neural solver on a Markov Network and Sum-Product Network.
+
+ **Example 4:** Discretizing the probabilities to binary assignments. Advanced discretizers include `KNearestDiscretizer` and `OAUAI`.
 
 ## Implemented Methods
 
@@ -112,7 +111,7 @@ If you use **NeuPI** in your research, please cite the following repository:
 	copyright = {MIT License},
 	shorttitle = {{NeuPI}},
 	url = {https://zenodo.org/doi/10.5281/zenodo.15873631},
-	abstract = {NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Models using neural network surrogates. It provides a modular framework for training neural models in a self-supervised fashion, where the Probabilistic Model itself provides the supervisory signal.},
+	abstract = {NeuPI is a PyTorch-based library for solving inference tasks in Probabilistic Models using neural network solvers. It provides a modular framework for training neural models in a self-supervised fashion, where the Probabilistic Model itself provides the supervisory signal.},
 	publisher = {Zenodo},
 	author = {Arya, Shivvrat and Rahman, Tahrima and Gogate, Vibhav},
 	doi = {10.5281/ZENODO.15873631},
