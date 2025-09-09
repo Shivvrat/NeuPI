@@ -10,6 +10,8 @@ NeuPI: Neural Probabilistic Inference
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
 
+See :doc:`Contents <contents>` for the full table of contents.
+
 Indices and tables
 ==================
 
@@ -18,10 +20,6 @@ Indices and tables
 * :ref:`search`
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-   :glob:
+   :hidden:
 
-   ../details/paper_details.md
-   examples
-   api_reference
+   contents
