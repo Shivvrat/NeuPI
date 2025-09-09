@@ -68,11 +68,11 @@ class OAUAI(BaseDiscretizer):
             sample_query_mask = query_mask[i]
 
             # Find the k most uncertain query variables
-            uncertainty = torch.abs(sample_probs - 0.5)
+            certainty = torch.abs(sample_probs - 0.5)
             # Mask out non-query variables so they are not selected
-            uncertainty[~sample_query_mask] = float("inf")
+            certainty[~sample_query_mask] = float("inf")
 
-            _, top_k_indices = torch.topk(uncertainty, self.k, largest=False)
+            _, top_k_indices = torch.topk(certainty, self.k, largest=False)
 
             # Create candidate assignments by modifying the thresholded base
             base_assignment = final_assignments[i].unsqueeze(0).repeat(num_candidates, 1)
