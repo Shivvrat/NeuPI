@@ -27,14 +27,18 @@ def get_distributions(data, spn_class):
     all_distributions = {}
     # Initialize nodes based on their type (Bernoulli, Sum, Product)
     # We take reversed order because we want to evaluate the nodes from leaves to root
+    all_vars_in_spn = set()
     for idx, each_node_dict in enumerate(data["nodes"]):
         node_class = each_node_dict["class"]
         spn_class.node_types[node_class].append(each_node_dict["id"])
-        scope = torch.LongTensor([int(s) for s in each_node_dict.get("scope", [])])
+        scope = [int(s) for s in each_node_dict.get("scope", [])]
+        all_vars_in_spn.update(scope)
+        scope = torch.LongTensor(scope)
         if node_class == "Bernoulli":
             params = each_node_dict["params"]["p"]
-            all_distributions[idx] = BernoulliLeaf(idx, params, scope[0], spn_class.device)
-            spn_class.num_var += 1
+            all_distributions[idx] = BernoulliLeaf(
+                idx, params, scope[0], spn_class.device
+            )
         elif node_class == "Product":
             children_indices = spn_class._get_children_indices(idx)
             all_distributions[idx] = ProductNode(idx, scope, children_indices)
@@ -50,4 +54,5 @@ def get_distributions(data, spn_class):
             )
         else:
             raise NotImplementedError(f"Unknown node class {node_class}")
+    spn_class.num_var = len(all_vars_in_spn)
     return all_distributions
