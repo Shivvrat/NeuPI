@@ -2,7 +2,7 @@
 """NeuPI: Neural-Probabilistic Inference Library"""
 
 # Expose the version of the package
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 
 # Expose the factory function as the main entry point
 # Discretizers
