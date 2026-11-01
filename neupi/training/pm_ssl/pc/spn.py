@@ -16,6 +16,9 @@ from .spn_utils import (
 
 @register("prob_model")
 class SumProductNetwork(BaseProbModel):
+    # NaN inputs are summed out, so the SPN also scores MMAP solutions
+    supports_marginalization = True
+
     def __init__(self, json_file, device="cpu"):
         """
         Initialize the SumProductNetwork with configuration from a JSON file.

@@ -39,7 +39,8 @@ pip install -e .
 
 * **Self-Supervised Training**: Train neural solvers using only the Probabilistic Model—no labeled data required.
 * **Advanced Inference**: Includes the **ITSELF** (`Inference Time Self-Supervised Training`) engine for test-time refinement, significantly improving inference accuracy.
-* **Discretization**: Includes a simple `ThresholdDiscretizer` and more advanced methods like `KNearestDiscretizer` and `OAUAI` to find higher-scoring final assignments.
+* **Discretization**: Includes a simple `ThresholdDiscretizer` and more advanced methods like `KNearestDiscretizer` and `OAUAI` to find higher-scoring final assignments. `BestOfDiscretizer` combines several of them and keeps the best assignment per query (e.g. OAUAI | k-Nearest).
+* **Marginal MAP (MMAP)**: Supported for probabilistic circuits (`SumProductNetwork`) only. Mark the variables to sum out in `unobs_mask`; the trainer, ITSELF and the discretizers marginalize them out (internally they are passed to the circuit as NaN). Other models raise a `ValueError` when `unobs_mask` is non-empty. The returned assignments are not meaningful at unobserved positions.
 * **Extensible**: Easily register your own custom components using the built-in factory system.
 
 ## Quick Start

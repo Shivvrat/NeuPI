@@ -9,7 +9,8 @@ Options.embed_pos_in_docstring = False
 Options.generate_cleanup_code = False
 
 # Define compiler and linker flags for optimization
-extra_compile_args = ["-O3", "-march=native", "-ffast-math", "-fopenmp"]
+# No -march=native or -ffast-math: wheels must run on any x86_64 CPU and keep IEEE semantics
+extra_compile_args = ["-O3", "-fopenmp"]
 extra_link_args = ["-fopenmp"]
 
 # Define a single list containing all Cython extension modules

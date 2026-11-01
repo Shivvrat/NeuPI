@@ -1,7 +1,10 @@
+import copy
+
 import torch
 from neupi.core.trainer import BaseTrainer
+from neupi.losses import entropy_penalty
 from neupi.registry import register
-from neupi.utils.pgm_utils import apply_evidence
+from neupi.utils.pgm_utils import apply_evidence, check_marginalization, mark_unobserved
 from torch.utils.data import DataLoader
 
 
@@ -21,6 +24,11 @@ class SelfSupervisedTrainer(BaseTrainer):
                             and the PGM evaluator as arguments.
         optimizer (torch.optim.Optimizer): The optimizer for updating model weights.
         device (str): The device to run training on ('cpu' or 'cuda').
+        entropy_weight (float): Weight alpha of the entropy penalty over the query
+                                variables (`neupi.losses.entropy_penalty`) added to the loss.
+                                Defaults to 0.0 (no penalty).
+        entropy_aggregate (str): "avg" or "sum" over the batch for the entropy penalty.
+                                 Set it to match the loss's `aggregate`. Defaults to "avg".
     """
 
     def __init__(
@@ -30,15 +38,23 @@ class SelfSupervisedTrainer(BaseTrainer):
         loss_fn: callable,
         optimizer: torch.optim.Optimizer,
         device: str = "cpu",
+        entropy_weight: float = 0.0,
+        entropy_aggregate: str = "avg",
     ):
+        if entropy_weight < 0:
+            raise ValueError("entropy_weight must be non-negative.")
+        if entropy_aggregate not in ("avg", "sum"):
+            raise ValueError("entropy_aggregate must be 'avg' or 'sum'.")
         self.model = model.to(device)
         self.pgm_evaluator = pgm_evaluator.to(device)
         self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.device = device
+        self.entropy_weight = entropy_weight
+        self.entropy_aggregate = entropy_aggregate
 
-    def step(self, batch_data):
-        """Performs a single training step on a batch of data."""
+    def _compute_loss(self, batch_data):
+        """Computes the loss of the model's predictions on a batch of data."""
         # Unpack batch data (assuming a tuple of tensors)
         # You might need to adjust this based on your DataLoader's output
         evidence_data, evidence_mask, query_mask, unobs_mask = batch_data
@@ -48,7 +64,6 @@ class SelfSupervisedTrainer(BaseTrainer):
         unobs_mask = unobs_mask.to(self.device)
 
         # Forward pass
-        self.model.train()
         raw_predictions = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
 
         # Apply a sigmoid to get probabilities in the range [0, 1]
@@ -58,8 +73,22 @@ class SelfSupervisedTrainer(BaseTrainer):
         # The network's predictions for evidence variables are replaced with their true values.
         final_assignments = apply_evidence(predictions, evidence_data, evidence_mask)
 
-        # Calculate loss
-        loss = self.loss_fn(final_assignments, self.pgm_evaluator)
+        # Calculate loss; for MMAP, the unobserved variables are marginalized out
+        if unobs_mask.any():
+            check_marginalization(self.pgm_evaluator)
+            loss = self.loss_fn(mark_unobserved(final_assignments, unobs_mask), self.pgm_evaluator)
+        else:
+            loss = self.loss_fn(final_assignments, self.pgm_evaluator)
+        if self.entropy_weight:
+            loss = loss + entropy_penalty(
+                final_assignments, query_mask, self.entropy_weight, self.entropy_aggregate
+            )
+        return loss
+
+    def step(self, batch_data):
+        """Performs a single training step on a batch of data."""
+        self.model.train()
+        loss = self._compute_loss(batch_data)
 
         # Backward pass and optimization
         self.optimizer.zero_grad()
@@ -68,14 +97,41 @@ class SelfSupervisedTrainer(BaseTrainer):
 
         return loss.item()
 
-    def fit(self, dataloader: DataLoader, num_epochs: int):
+    @torch.no_grad()
+    def evaluate(self, dataloader: DataLoader) -> float:
+        """Returns the average loss of the model on a DataLoader, in eval mode."""
+        self.model.eval()
+        total_loss = 0
+        for batch_data in dataloader:
+            total_loss += self._compute_loss(batch_data).item()
+        return total_loss / len(dataloader)
+
+    def fit(
+        self,
+        dataloader: DataLoader,
+        num_epochs: int,
+        val_dataloader: DataLoader = None,
+        scheduler=None,
+    ):
         """
         Runs the full training loop for a specified number of epochs.
 
         Args:
             dataloader (DataLoader): The DataLoader providing training data.
             num_epochs (int): The number of epochs to train for.
+            val_dataloader (DataLoader, optional): If given, the loss is computed on it
+                after every epoch, and the weights from the epoch with the lowest
+                validation loss are restored at the end (stored in `best_val_loss` and
+                `best_epoch`). If None, the final epoch's weights are kept.
+            scheduler (optional): A learning-rate scheduler stepped once per epoch.
+                `torch.optim.lr_scheduler.ReduceLROnPlateau` is stepped with the
+                validation loss (training loss if there is no validation set), e.g.
+                `ReduceLROnPlateau(optimizer, factor=0.9)`; other schedulers are stepped
+                without arguments.
         """
+        best_state = None
+        self.best_val_loss = float("inf")
+        self.best_epoch = None
         for epoch in range(num_epochs):
             total_loss = 0
             for batch_data in dataloader:
@@ -83,6 +139,27 @@ class SelfSupervisedTrainer(BaseTrainer):
                 total_loss += loss
 
             avg_loss = total_loss / len(dataloader)
-            print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}")
+            message = f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}"
+
+            monitored_loss = avg_loss
+            if val_dataloader is not None:
+                val_loss = self.evaluate(val_dataloader)
+                message += f", Validation Loss: {val_loss:.4f}"
+                monitored_loss = val_loss
+                if val_loss < self.best_val_loss:
+                    self.best_val_loss = val_loss
+                    self.best_epoch = epoch + 1
+                    best_state = copy.deepcopy(self.model.state_dict())
+            print(message)
+
+            if scheduler is not None:
+                if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    scheduler.step(monitored_loss)
+                else:
+                    scheduler.step()
+
+        if best_state is not None:
+            self.model.load_state_dict(best_state)
+            print(f"Restored weights from epoch {self.best_epoch} (Validation Loss: {self.best_val_loss:.4f})")
 
         return self.model

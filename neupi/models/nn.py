@@ -22,8 +22,10 @@ class MLP(BaseNNModel):
         output_size (int): The number of neurons in the output layer.
         hidden_activation (str): The activation function for hidden layers.
                                  Supported: 'relu', 'leaky_relu'.
-        use_batchnorm (bool): If True, adds a BatchNorm1d layer after each
-                              hidden activation. Defaults to True.
+        use_batchnorm (bool): If True, adds a BatchNorm1d layer after each hidden
+                              linear layer, before the activation. Defaults to False,
+                              as in the papers. Models saved with neupi <= 1.1.0
+                              defaults need `use_batchnorm=True` to load.
         dropout_rate (float): The dropout probability. If 0.0, no dropout is
                               applied. Defaults to 0.0.
     """
@@ -34,7 +36,7 @@ class MLP(BaseNNModel):
         output_size: int,
         embedding: Embedding = None,
         hidden_activation: str = "relu",
-        use_batchnorm: bool = True,
+        use_batchnorm: bool = False,
         dropout_rate: float = 0.0,
     ):
         super().__init__()

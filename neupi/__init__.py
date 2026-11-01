@@ -2,10 +2,11 @@
 """NeuPI: Neural-Probabilistic Inference Library"""
 
 # Expose the version of the package
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # Expose the factory function as the main entry point
 # Discretizers
+from .discretize.combined import BestOfDiscretizer
 from .discretize.kn import KNearestDiscretizer
 from .discretize.oauai import OAUAI
 from .discretize.threshold import ThresholdDiscretizer
@@ -19,7 +20,7 @@ from .inference.itself import ITSELF_Engine
 from .inference.single_pass import SinglePassInferenceEngine
 
 # Loss Computation Functions
-from .losses import mpe_log_likelihood_loss
+from .losses import entropy_penalty, mpe_log_likelihood_loss
 
 # Neural models
 from .models.nn import MLP
@@ -48,8 +49,10 @@ __all__ = [
     "KNearestDiscretizer",
     "OAUAI",
     "ThresholdDiscretizer",
+    "BestOfDiscretizer",
     "DiscreteEmbedder",
     "IdentityEmbedding",
     "__version__",
     "mpe_log_likelihood_loss",
+    "entropy_penalty",
 ]
