@@ -17,7 +17,7 @@ def apply_evidence(
                                     Shape: (num_variables,) or (batch_size, num_variables).
         evidence_data (torch.Tensor): The tensor with the true evidence values.
                                      Must have the same shape as `predictions`. We only use the evidence data where the evidence mask is True.
-        evidence_mask (torch.Tensor): A boolean tensor indicating which variables
+        evidence_mask (torch.Tensor): A boolean (or 0/1) tensor indicating which variables
                                       are evidence. Must have the same shape as `predictions`.
 
     Returns:
@@ -29,8 +29,10 @@ def apply_evidence(
     processed_tensor = predictions.clone()
 
     # Use the evidence mask to overwrite predicted values with true evidence values.
-    # This works for both 1D and 2D tensors.
-    processed_tensor[evidence_mask] = evidence_data[evidence_mask]
+    # This works for both 1D and 2D tensors. The mask is cast to bool because an integer
+    # 0/1 mask would otherwise be read as row indices.
+    evidence_mask = evidence_mask.bool()
+    processed_tensor[evidence_mask] = evidence_data[evidence_mask].to(processed_tensor.dtype)
 
     # Ensure the output is always a 2D tensor (batched)
     if processed_tensor.ndim == 1:

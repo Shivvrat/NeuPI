@@ -5,7 +5,7 @@ import torch
 from neupi import OAUAI, ThresholdDiscretizer
 
 # Import components from your NeuPI library structure
-from neupi.training.pm_ssl.pgm.mn import MarkovNetwork
+from neupi import ProbabilisticGraphicalModel
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -16,7 +16,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def mn_evaluator():
     """Loads a Markov Network evaluator for all tests in this module."""
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
-    return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    return ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
 
 @pytest.fixture(scope="module")

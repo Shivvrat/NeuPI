@@ -7,7 +7,7 @@ import torch
 from neupi import (
     DiscreteEmbedder,
     KNearestDiscretizer,
-    MarkovNetwork,
+    ProbabilisticGraphicalModel,
     SinglePassInferenceEngine,
     ThresholdDiscretizer,
 )
@@ -21,7 +21,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def mn_evaluator():
     """Loads a Markov Network evaluator."""
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
-    return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    return ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
 
 @pytest.fixture(scope="module")

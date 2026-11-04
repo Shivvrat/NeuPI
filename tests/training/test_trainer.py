@@ -5,7 +5,7 @@ import torch
 from neupi import (
     MLP,
     DiscreteEmbedder,
-    MarkovNetwork,
+    ProbabilisticGraphicalModel,
     SelfSupervisedTrainer,
     mpe_log_likelihood_loss,
 )
@@ -20,7 +20,7 @@ def mn_evaluator():
     """Pytest fixture to load a Markov Network evaluator for the tests."""
     # Using a test file from your provided structure
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
-    return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    return ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
 
 @pytest.fixture(scope="module")

@@ -7,7 +7,7 @@ import sys
 # '..' goes to docs/, another '..' goes to the project root.
 sys.path.insert(0, os.path.abspath("../.."))
 
-release = "1.2.0"
+release = "1.3.0"
 
 
 # -- Project information -----------------------------------------------------

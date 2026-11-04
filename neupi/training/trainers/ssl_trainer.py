@@ -18,7 +18,7 @@ class SelfSupervisedTrainer(BaseTrainer):
 
     Args:
         model (torch.nn.Module): The neural network model to be trained.
-        pgm_evaluator (torch.nn.Module): The PGM evaluator (e.g., MarkovNetwork)
+        pgm_evaluator (torch.nn.Module): The PGM evaluator (e.g., ProbabilisticGraphicalModel)
                                          used for calculating log-likelihoods.
         loss_fn (callable): The loss function. It should accept predictions
                             and the PGM evaluator as arguments.
@@ -88,6 +88,12 @@ class SelfSupervisedTrainer(BaseTrainer):
     def step(self, batch_data):
         """Performs a single training step on a batch of data."""
         self.model.train()
+        # BatchNorm cannot compute batch statistics from one sample (e.g. the last batch of
+        # an epoch), so for such a batch it uses its running statistics instead
+        if batch_data[0].shape[0] == 1:
+            for module in self.model.modules():
+                if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+                    module.eval()
         loss = self._compute_loss(batch_data)
 
         # Backward pass and optimization

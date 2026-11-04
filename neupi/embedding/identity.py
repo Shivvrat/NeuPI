@@ -25,4 +25,6 @@ class IdentityEmbedding(Embedding):
         query_mask: torch.Tensor,
         unobs_mask: torch.Tensor,
     ) -> torch.Tensor:
+        if not torch.is_floating_point(evidence_data):
+            return evidence_data.to(torch.get_default_dtype())
         return evidence_data

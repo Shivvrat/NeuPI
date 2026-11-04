@@ -52,22 +52,29 @@ class DiscreteEmbedder(Embedding):
         if not is_batch:
             # Add a temporary batch dimension for consistent processing
             evidence_data = evidence_data.unsqueeze(0)
+            query_mask = None if query_mask is None else query_mask.unsqueeze(0)
+            unobs_mask = None if unobs_mask is None else unobs_mask.unsqueeze(0)
 
         num_samples, n_vars = evidence_data.size()
         device = evidence_data.device
-        dtype = evidence_data.dtype
+        # Integer or bool evidence gives float features, which is what nn.Linear expects
+        dtype = evidence_data.dtype if torch.is_floating_point(evidence_data) else torch.get_default_dtype()
+        evidence_data = evidence_data.to(dtype)
 
         # Create the expanded feature tensor [v, 1-v]
         embedded_features = torch.zeros(num_samples, n_vars * 2, dtype=dtype, device=device)
         embedded_features[:, 0::2] = evidence_data  # Even indices get the original value
         embedded_features[:, 1::2] = 1 - evidence_data  # Odd indices get 1 - value
 
-        # Apply embeddings for query and unobserved variables
+        # Apply embeddings for query and unobserved variables. The masks are cast to bool
+        # because an integer 0/1 mask would otherwise be read as indices.
         if query_mask is not None:
+            query_mask = query_mask.bool()
             embedded_features[:, 0::2][query_mask] = self.query_embedding
             embedded_features[:, 1::2][query_mask] = self.query_embedding
 
         if unobs_mask is not None:
+            unobs_mask = unobs_mask.bool()
             embedded_features[:, 0::2][unobs_mask] = self.unobserved_embedding
             embedded_features[:, 1::2][unobs_mask] = self.unobserved_embedding
 

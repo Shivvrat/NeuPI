@@ -48,9 +48,7 @@ class SumProductNetwork(BaseProbModel):
         self.eps = 1e-6
         self.device = device
         self.node_types = {"Sum": [], "Product": [], "Bernoulli": []}
-        edge_parent, edge_child_start_index = preprocess_links(data)
-        self.edge_parent = edge_parent.to(device)
-        self.edge_child_start_index = edge_child_start_index.to(device)
+        self.node_children, self.evaluation_order, self.root = preprocess_links(data)
 
         distributions = get_distributions(data, self)
         self.all_distributions = nn.ModuleList(list(distributions.values()))
@@ -60,10 +58,13 @@ class SumProductNetwork(BaseProbModel):
                 self.node_types[each_node_type], dtype=torch.long, device=self.device
             )
 
+    @property
+    def num_variables(self) -> int:
+        """Number of variables, named as in `ProbabilisticGraphicalModel`."""
+        return self.num_var
+
     def _get_children_indices(self, node_idx: int):
-        start_idx = self.edge_child_start_index[node_idx]
-        end_idx = self.edge_child_start_index[node_idx + 1]
-        return self.all_nodes[start_idx + 1 : end_idx + 1]
+        return self.node_children[node_idx]
 
     def _check_is_binary(self, tensor):
         # Check if all elements are either 0 or 1
@@ -73,25 +74,35 @@ class SumProductNetwork(BaseProbModel):
         """
         Evaluate the SPN model on input data.
 
-        :param x: Tensor representing input data (batch_size, input_size).
+        :param x: Assignments in [0, 1] of shape (batch_size, num_var) or (num_var,);
+            NaN marks a variable to sum out.
         :return: Function value at the root of the SPN.
         """
-        assert self.num_var == x.size(1), "Input size must match the number of variables"
-        # the shape of function_values_at_each_index is (num_var, batch_size)
+        x = torch.as_tensor(x, device=self.device)
+        # At least float32: log-likelihoods are large, so half precision would lose whole nats
+        x = x.to(torch.promote_types(x.dtype, torch.float32))
+        if x.ndim == 1:
+            x = x.unsqueeze(0)
+        if x.ndim != 2 or x.size(1) != self.num_var:
+            raise ValueError(
+                f"Expected assignments of shape (batch_size, {self.num_var}), got {tuple(x.shape)}."
+            )
+        # the shape of function_values_at_each_index is (num_nodes, batch_size)
         function_values_at_each_index = torch.empty(
-            (self.num_nodes_in_spn, x.size(0)), device=self.device
+            (self.num_nodes_in_spn, x.size(0)), dtype=x.dtype, device=self.device
         )
-        # Make sure there are no -1s in the input
-        assert torch.sum(x == -1) == 0, "Input cannot contain -1s"
-        # Evaluate each node in reverse order (from leaves to root)
-        for node_idx in reversed(range(self.num_nodes_in_spn)):
+        # -1 is not a marginalization marker; use NaN for unobserved variables
+        if (x == -1).any():
+            raise ValueError("Input cannot contain -1s; mark unobserved variables with NaN.")
+        # Evaluate every child before its parents
+        for node_idx in self.evaluation_order:
             func_value = self._evaluate_node(
                 node_idx,
                 x,
                 function_values_at_each_index,
             )
             function_values_at_each_index[node_idx] = func_value
-        return function_values_at_each_index[0]
+        return function_values_at_each_index[self.root]
 
     def _get_node_type_and_children_indices(self, node_idx: int):
         """
@@ -126,4 +137,6 @@ class SumProductNetwork(BaseProbModel):
             raise NotImplementedError("Unknown node type")
 
     def forward(self, x):
-        return self.evaluate(x)
+        """Log-likelihood of each assignment, shape (batch_size,), on the device of x."""
+        input_device = x.device if isinstance(x, torch.Tensor) else self.device
+        return self.evaluate(x).to(input_device)

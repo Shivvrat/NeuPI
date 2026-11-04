@@ -58,7 +58,7 @@ def mpe_log_likelihood_loss(
         predictions (torch.Tensor): A batch of binary assignments (0s or 1s) predicted by
                                     a neural network. Shape: (batch_size, num_variables).
         pgm_evaluator (torch.nn.Module): An instantiated PGM evaluator object from `neupi.pgm`
-                                         (e.g., MarkovNetwork, SumProductNetwork) that has a
+                                         (e.g., ProbabilisticGraphicalModel, SumProductNetwork) that has a
                                          `forward` or `evaluate` method.
         aggregate (str): "avg" or "sum" over the batch.
 

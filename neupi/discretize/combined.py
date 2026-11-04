@@ -23,7 +23,7 @@ class BestOfDiscretizer(BaseDiscretizer):
     marginalized out. On ties, the earlier discretizer in the list wins.
 
     Args:
-        pgm_evaluator (Callable): The PGM evaluator (e.g., MarkovNetwork) which acts
+        pgm_evaluator (Callable): The PGM evaluator (e.g., ProbabilisticGraphicalModel) which acts
                                   as the scoring function.
         discretizers (Sequence[BaseDiscretizer]): The discretizers to combine.
 

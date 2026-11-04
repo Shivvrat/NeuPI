@@ -15,7 +15,7 @@ from neupi import (
     DiscreteEmbedder,
     ITSELF_Engine,
     KNearestDiscretizer,
-    MarkovNetwork,
+    ProbabilisticGraphicalModel,
     SelfSupervisedTrainer,
     ThresholdDiscretizer,
     entropy_penalty,
@@ -31,7 +31,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 @pytest.fixture(scope="module")
 def mn_evaluator():
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
-    return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    return ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
 
 def make_batch(num_vars, num_samples=4, seed=0):

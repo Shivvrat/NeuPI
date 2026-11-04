@@ -26,10 +26,13 @@ def register(kind: str) -> Callable[[type], type]:
 
 def get(kind: str, name: str, *args: Any, **kwargs: Any) -> Any:
     """Instantiate a class from the registry by its kind and name."""
+    # Look the class up first, so a KeyError raised by its constructor is not reported
+    # as an unregistered name
     try:
-        return _REGISTRY[kind][name](*args, **kwargs)
+        cls = _REGISTRY[kind][name]
     except KeyError:
         raise ValueError(
             f"'{name}' is not a registered '{kind}'. "
             f"Available: {list(_REGISTRY.get(kind, {}).keys())}"
-        )
+        ) from None
+    return cls(*args, **kwargs)

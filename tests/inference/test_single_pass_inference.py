@@ -5,7 +5,7 @@ import torch
 from neupi import (
     MLP,
     DiscreteEmbedder,
-    MarkovNetwork,
+    ProbabilisticGraphicalModel,
     SelfSupervisedTrainer,
     SinglePassInferenceEngine,
     ThresholdDiscretizer,
@@ -28,7 +28,7 @@ def trained_model():
     """Pytest fixture to train a model for a few epochs and return it."""
     # 1. Setup PGM evaluator and dummy data
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
-    mn_evaluator = MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    mn_evaluator = ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
     num_samples = 16
     num_vars = mn_evaluator.num_variables

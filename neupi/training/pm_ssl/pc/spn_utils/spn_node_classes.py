@@ -26,7 +26,7 @@ class SumNode(nn.Module):
         super(SumNode, self).__init__()
         self.node_idx = node_idx
         self.weights = torch.FloatTensor(weights).to(device)  # Make weights a learnable parameter
-        self.log_weights = torch.log(self.weights + eps).unsqueeze(1)
+        self.log_weights = torch.log(self.weights.clamp_min(1e-10)).unsqueeze(1)
         self.scope = scope
         self.children_indices = children_indices
         self.eps = eps
@@ -50,6 +50,9 @@ class BernoulliLeaf(torch.nn.Module):
         self.node_idx = node_idx
         self.weights = torch.tensor([p], dtype=torch.float, device=device)
         self.eps = 1e-6
+        # p is clamped to [min_prob, 1 - min_prob] (representable in float32), so that p = 0
+        # or 1 gives a large penalty instead of -inf
+        self.min_prob = 1e-7
         self.scope = scope
         self.device = device
 
@@ -61,8 +64,8 @@ class BernoulliLeaf(torch.nn.Module):
         log_weights = torch.log(self.weights + self.eps).to(self.device)
         log_one_minus_weights = torch.log(1 - self.weights + self.eps).to(self.device)
 
-        # Precompute results for NaN cases
-        result_for_nan = torch.logsumexp(torch.stack([log_weights, log_one_minus_weights]), dim=0)
+        # A summed-out (NaN) variable contributes log(p + (1 - p)) = 0
+        result_for_nan = torch.zeros_like(log_weights)
 
         # Precompute results for input cases
         if self.weights > 0.5:
@@ -101,23 +104,12 @@ class BernoulliLeaf(torch.nn.Module):
             x[unobs_indices] = 0  # Temporarily replace NaNs for computation
         else:
             x = inp_x
-        if x.ndimension() == 1:
-            # Log probabilities calculation using precomputed values
-            log_prob_one_minus_x = torch.log(1 - x + self.eps)
-            log_prob_x = torch.log(x + self.eps)
-        elif x.ndimension() == 2:
-            log_prob_one_minus_x = torch.log(x[:, 0] + self.eps)
-            log_prob_x = torch.log(x[:, 1] + self.eps)
+        # log(x * p + (1 - x) * (1 - p)): exact for binary x and multilinear for relaxed x.
+        # p is kept away from 0 and 1 so the value is finite and its slope never vanishes.
+        p = self.weights[0].clamp(self.min_prob, 1 - self.min_prob)
+        result = torch.log(x * p + (1 - x) * (1 - p))
+        if x.ndimension() == 2:
             unobs_indices = unobs_indices[:, 0]
-        result = torch.logsumexp(
-            torch.stack(
-                [
-                    log_prob_x + self.precomputed_values["log_weights"],
-                    log_prob_one_minus_x + self.precomputed_values["log_one_minus_weights"],
-                ]
-            ),
-            dim=0,
-        )
 
         # Replace results for NaN values
         result_in_log_space = torch.where(

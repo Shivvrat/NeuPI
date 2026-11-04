@@ -2,7 +2,7 @@
 """NeuPI: Neural-Probabilistic Inference Library"""
 
 # Expose the version of the package
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 # Expose the factory function as the main entry point
 # Discretizers
@@ -31,7 +31,7 @@ from .registry import get as factory
 # Probabilistic models (as losses)
 from .training.pm_ssl.nam.made import MADE
 from .training.pm_ssl.pc.spn import SumProductNetwork
-from .training.pm_ssl.pgm.mn import MarkovNetwork
+from .training.pm_ssl.pgm.mn import MarkovNetwork, ProbabilisticGraphicalModel
 
 # Trainers
 from .training.trainers.ssl_trainer import SelfSupervisedTrainer
@@ -39,6 +39,7 @@ from .training.trainers.ssl_trainer import SelfSupervisedTrainer
 # Control what 'from neupi import *' imports
 __all__ = [
     "factory",
+    "ProbabilisticGraphicalModel",
     "MarkovNetwork",
     "SumProductNetwork",
     "MADE",

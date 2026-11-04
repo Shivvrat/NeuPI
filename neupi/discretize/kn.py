@@ -19,7 +19,7 @@ class KNearestDiscretizer(BaseDiscretizer):
     and selects the best one.
 
     Args:
-        pgm_evaluator (Callable): The PGM evaluator (e.g., MarkovNetwork) which acts
+        pgm_evaluator (Callable): The PGM evaluator (e.g., ProbabilisticGraphicalModel) which acts
                                   as the scoring function.
         k (int or float): Number of nearest binary vectors to consider. A float in
                           (0, 1) is a fraction of each query's query variables

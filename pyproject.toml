@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neupi"
-version = "1.2.0"
+version = "1.3.0"
 authors = [
-  { name="Shivvrat Arya", email="shivvrat.arya@utdallas.edu" },
+  { name="Shivvrat Arya", email="shivvrat.arya@njit.edu" },
 ]
 description = "A library of neural solvers for fast and accurate inference over Probabilistic Models."
 readme = "README.md"

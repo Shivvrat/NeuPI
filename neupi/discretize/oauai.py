@@ -24,7 +24,7 @@ class OAUAI(BaseDiscretizer):
     ``oracle``.
 
     Args:
-        pgm_evaluator (Callable): The PGM evaluator (e.g., MarkovNetwork) which acts
+        pgm_evaluator (Callable): The PGM evaluator (e.g., ProbabilisticGraphicalModel) which acts
                                   as the scoring function.
         k (int or float): The number of most uncertain query variables to search over.
                           A float in (0, 1) is a fraction of each query's query

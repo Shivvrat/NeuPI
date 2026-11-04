@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from neupi import MarkovNetwork, mpe_log_likelihood_loss
+from neupi import ProbabilisticGraphicalModel, mpe_log_likelihood_loss
 
 # Define the device for testing
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -18,7 +18,7 @@ def pairwise_mn():
     """Pytest fixture to load the pairwise Markov Network once for all tests."""
     # Path to the test data file, relative to this test file
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Segmentation_12.uai"
-    return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    return ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
 
 def get_baseline_ll(data, mn_path):
@@ -44,7 +44,7 @@ def get_baseline_ll(data, mn_path):
 
 def test_mn_evaluation(pairwise_mn):
     """
-    Tests the log-likelihood evaluation of the MarkovNetwork module
+    Tests the log-likelihood evaluation of the ProbabilisticGraphicalModel module
     against a known, pre-calculated value.
     """
     num_variables = pairwise_mn.num_variables

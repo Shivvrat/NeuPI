@@ -9,7 +9,7 @@ from neupi import (
     MLP,
     DiscreteEmbedder,
     ITSELF_Engine,
-    MarkovNetwork,
+    ProbabilisticGraphicalModel,
     SelfSupervisedTrainer,
     SinglePassInferenceEngine,
     ThresholdDiscretizer,
@@ -27,7 +27,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def mn_evaluator():
     """Loads a Markov Network evaluator for all tests in this module."""
     uai_path = Path(__file__).parent.parent.parent / "examples/networks/mn/Grids_17.uai"
-    return MarkovNetwork(uai_file=str(uai_path), device=DEVICE)
+    return ProbabilisticGraphicalModel(uai_file=str(uai_path), device=DEVICE)
 
 
 @pytest.fixture(scope="module")
