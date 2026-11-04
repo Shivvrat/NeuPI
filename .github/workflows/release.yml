@@ -2,16 +2,99 @@
 
 name: Build and Publish to PyPI
 
-# This workflow runs on every push to the main branch and when a release is created.
+# Every push to main is tested and its wheels are built. If the push sets a new version
+# (the version in pyproject.toml has no vX.Y.Z tag yet), the wheels are published to PyPI
+# and the vX.Y.Z tag and GitHub release are created. The release notes are the message of
+# the commit that set the version in pyproject.toml. A push that does not change the
+# version publishes nothing.
+#
+# PyPI trusted publishing is tied to this file name (release.yml), so do not rename it.
 on:
   push:
     branches:
       - main
       - master
-  release:
-    types: [created]
+  # Manual run from the Actions tab, e.g. to retry a failed release
+  workflow_dispatch:
+
+# Never run two releases at once
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  check_version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.tag.outputs.release }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Read the version and check that all files agree
+        id: version
+        run: |
+          python - <<'EOF'
+          import os, re, tomllib
+          version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          found = {
+              "neupi/__init__.py": re.search(r'^__version__ = "([^"]+)"', open("neupi/__init__.py").read(), re.M),
+              "docs/source/conf.py": re.search(r'^release = "([^"]+)"', open("docs/source/conf.py").read(), re.M),
+              "CITATION.cff": re.search(r"^version: (\S+)", open("CITATION.cff").read(), re.M),
+          }
+          wrong = {f: m.group(1) if m else None for f, m in found.items() if not m or m.group(1) != version}
+          if wrong:
+              raise SystemExit(f"pyproject.toml has version {version}, but: {wrong}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={version}\n")
+          print(f"Version {version}")
+          EOF
+
+      - name: Check whether this version is already released
+        id: tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "v$VERSION already exists: nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$VERSION is new: it will be released if the tests and the build pass."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "numpy>=1.24" "cython>=3.1.2" "setuptools>=70.0" pytest
+
+      - name: Build the Cython extensions
+        run: python setup.py build_ext --inplace
+
+      # tests/losses compares against the Libra CLI and deeprob-kit, which are not installed here
+      - name: Run tests
+        run: python -m pytest -q --ignore=tests/losses
+
   build_wheels:
     name: Build Linux wheels
     runs-on: ubuntu-latest # Run only on Linux
@@ -38,18 +121,25 @@ jobs:
           name: linux-wheels
           path: ./wheelhouse
 
-  publish_wheels:
-    name: Publish wheels to PyPI
-    needs: build_wheels
+  release:
+    name: Publish to PyPI and create the GitHub release
+    needs: [check_version, test, build_wheels]
     runs-on: ubuntu-latest
-    # This job runs only when a new release is created on GitHub
-    if: github.event_name == 'release' && github.event.action == 'created'
+    # Only for a new version on main/master, and only after the tests and the build passed
+    if: >-
+      needs.check_version.outputs.release == 'true' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
-    # Set up trusted publishing
     permissions:
       id-token: write # This is required for trusted publishing
+      contents: write # To create the tag and the GitHub release
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # The full history, to find the commit that set the version
+
       - name: Download all wheels
         uses: actions/download-artifact@v4
         with:
@@ -58,8 +148,23 @@ jobs:
           pattern: linux-wheels
           merge-multiple: true
 
+      # PyPI first: if the upload fails, no tag is created and the release can be retried.
+      # skip-existing makes a retry succeed when the wheels were already uploaded.
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          skip-existing: true
 
+      - name: Create the tag and the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check_version.outputs.version }}
+        run: |
+          # The message of the commit that set this version in pyproject.toml, else the head commit
+          bump=$(git log -1 --format=%H -S "version = \"$VERSION\"" "$GITHUB_SHA" -- pyproject.toml)
+          git log -1 --format=%B "${bump:-$GITHUB_SHA}" > release-notes.md
+          gh release create "v$VERSION" dist/*.whl \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file release-notes.md
