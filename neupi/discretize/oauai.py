@@ -7,6 +7,7 @@ import torch
 from neupi.core.discretizer import BaseDiscretizer, resolve_k, validate_k
 from neupi.registry import register
 from neupi.utils.pgm_utils import evaluate_log_likelihood
+from neupi.utils.timing import deadline_from, expired, min_deadline, validate_time_limit
 
 
 @register("discretizer_oauai")
@@ -41,6 +42,9 @@ class OAUAI(BaseDiscretizer):
                           shape (num_variables,) in which the free variables are set (for
                           example, the MPE of the free variables given all others). If
                           None, all 2^k assignments are enumerated.
+        time_limit (float, optional): Time budget in seconds for one call (one batch of
+                          queries). When it runs out, the queries not yet searched keep
+                          their thresholded assignment. None means no limit.
 
     References
     ----------
@@ -54,9 +58,11 @@ class OAUAI(BaseDiscretizer):
         threshold: float = 0.5,
         oracle: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
         max_k: Optional[int] = None,
+        time_limit: Optional[float] = None,
     ):
         super().__init__()
         validate_k(k, max_k)
+        self.time_limit = validate_time_limit(time_limit)
         if oracle is None and isinstance(k, numbers.Integral) and min(k, max_k or k) > 10:
             print(f"Warning: k={k} may lead to slow performance (2^{k} evaluations per sample).")
         self.pgm_evaluator = pgm_evaluator
@@ -73,10 +79,15 @@ class OAUAI(BaseDiscretizer):
         query_mask: torch.Tensor,
         evidence_mask: torch.Tensor,
         unobs_mask: torch.Tensor,
+        deadline: Optional[float] = None,
     ) -> torch.Tensor:
         """
-        Performs the OAUAI discretization for each instance in the batch. .
+        Performs the OAUAI discretization for each instance in the batch.
+
+        `deadline` is an absolute `time.monotonic()` deadline from the caller, combined with
+        this discretizer's own `time_limit`.
         """
+        deadline = min_deadline(deadline, deadline_from(self.time_limit))
         num_examples, num_vars = prob_outputs.shape
         device = prob_outputs.device
         dtype = prob_outputs.dtype
@@ -89,6 +100,9 @@ class OAUAI(BaseDiscretizer):
         final_scores = evaluate_log_likelihood(self.pgm_evaluator, final_assignments, unobs_mask)
 
         for i in range(num_examples):
+            # Out of time: the remaining queries keep their thresholded assignment
+            if expired(deadline):
+                break
             # Isolate the i-th sample
             sample_probs = prob_outputs[i]
             sample_query_mask = query_mask[i].bool()

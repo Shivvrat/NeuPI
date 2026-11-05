@@ -4,7 +4,7 @@ NeuPI: Neural Probabilistic Inference
 =====================================
 
 .. use glob to include all markdown files in the docs directory
-.. include:: ../details/paper_details.md
+.. include:: details/paper_details.md
    :parser: myst_parser.sphinx_
 
 .. include:: ../../README.md

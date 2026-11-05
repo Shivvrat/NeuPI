@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neupi"
-version = "1.3.0"
+version = "1.3.1"
 authors = [
   { name="Shivvrat Arya", email="shivvrat.arya@njit.edu" },
 ]
@@ -40,10 +40,13 @@ Issues = "https://github.com/Shivvrat/NeuPI/issues"
 # This 'gpu' extra serves as a marker and for potential future use.
 gpu = []
 # Docs dependencies
+# Same list as docs/requirements.txt (used by Read the Docs); building also needs pandoc
 docs = [
     "sphinx",
     "furo",
-    "myst-parser"
+    "myst-parser",
+    "nbsphinx",
+    "ipykernel",
 ]
 
 # This section tells setuptools to find the 'neupi' package in the current directory.

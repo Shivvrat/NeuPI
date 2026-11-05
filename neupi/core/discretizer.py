@@ -6,7 +6,14 @@ import torch
 
 
 class BaseDiscretizer(torch.nn.Module):
-    """Abstract base class for all discretizers."""
+    """
+    Abstract base class for all discretizers.
+
+    A discretizer that searches may accept an optional ``deadline`` keyword (an absolute
+    `time.monotonic()` value, see `neupi.utils.timing`); the inference engines pass one
+    when they have a time limit, and the discretizer then returns its best incumbent once
+    the deadline passes. Discretizers without the keyword are called without it.
+    """
 
     @abc.abstractmethod
     def __call__(

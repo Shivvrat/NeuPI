@@ -20,6 +20,9 @@ class MLP(BaseNNModel):
         hidden_sizes (List[int]): A list where each element is the number of
                                   neurons in a hidden layer.
         output_size (int): The number of neurons in the output layer.
+        embedding (Embedding): Turns the four query tensors into the network input and
+                               sets the input size (`embedding.embedding_size`), e.g.
+                               `DiscreteEmbedder(num_vars)` or `IdentityEmbedding(num_vars)`.
         hidden_activation (str): The activation function for hidden layers.
                                  Supported: 'relu', 'leaky_relu'.
         use_batchnorm (bool): If True, adds a BatchNorm1d layer after each hidden
@@ -34,13 +37,18 @@ class MLP(BaseNNModel):
         self,
         hidden_sizes: List[int],
         output_size: int,
-        embedding: Embedding = None,
+        embedding: Embedding,
         hidden_activation: str = "relu",
         use_batchnorm: bool = False,
         dropout_rate: float = 0.0,
     ):
         super().__init__()
 
+        if embedding is None:
+            raise ValueError(
+                "MLP needs an embedding to size its input layer; use IdentityEmbedding(num_vars) "
+                "to feed the raw assignment."
+            )
         self.embedding = embedding
 
         if hidden_activation == "relu":

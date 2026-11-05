@@ -427,3 +427,281 @@ def test_made_accepts_any_input_dtype():
     expected = made(x.float())
     for dtype in (torch.bool, torch.int64, torch.float64, torch.float16):
         assert torch.allclose(made(x.to(dtype)).float(), expected, atol=1e-3)
+
+
+def test_knearest_accepts_any_float_dtype(tmp_path):
+    rng = np.random.default_rng(2)
+    scopes, tables = random_model(rng, 5, [1, 2, 2, 2])
+    pgm = ProbabilisticGraphicalModel(write_uai(tmp_path / "m.uai", 5, scopes, tables))
+    knn = KNearestDiscretizer(pgm, k=4)
+    probs = torch.rand(3, 5)
+    query_mask = torch.ones(3, 5, dtype=torch.bool)
+    expected = knn(probs, query_mask)
+    for dtype in (torch.float64, torch.float16):
+        out = knn(probs.to(dtype), query_mask)
+        assert out.dtype == dtype and torch.equal(out.float(), expected)
+
+
+def test_mlp_without_embedding_raises_clearly():
+    with pytest.raises(ValueError, match="IdentityEmbedding"):
+        MLP([8], 4, None)
+
+
+def test_custom_evaluator_and_discretizer_plug_in():
+    """A user-defined evaluator (any BaseProbModel with forward) and discretizer work
+    with the trainer, both engines and the built-in discretizers."""
+    from neupi.core.discretizer import BaseDiscretizer
+    from neupi.core.model import BaseProbModel
+
+    class Target(BaseProbModel):
+        # log-likelihood that prefers the all-ones assignment
+        def forward(self, x):
+            return -((x - 1.0) ** 2).sum(dim=1)
+
+    class FirstHalfDiscretizer(BaseDiscretizer):
+        def __call__(self, prob_outputs, query_mask=None, evidence_mask=None, unobs_mask=None):
+            return (prob_outputs >= 0.5).to(prob_outputs.dtype)
+
+    n, batch = 6, 4
+    data = make_query_batch(n, batch, "mixed")
+    data = (data[0].float(), *data[1:])
+    loader = DataLoader(TensorDataset(*data), batch_size=2)
+    torch.manual_seed(0)
+    model = MLP([16], n, embedding=DiscreteEmbedder(n))
+    evaluator = Target()
+    trainer = SelfSupervisedTrainer(model, evaluator, mpe_log_likelihood_loss, torch.optim.Adam(model.parameters(), 0.1))
+    before = trainer.evaluate(loader)
+    trainer.fit(loader, num_epochs=20)
+    assert trainer.evaluate(loader) < before
+
+    for discretizer in (FirstHalfDiscretizer(), KNearestDiscretizer(evaluator, k=3), OAUAI(evaluator, k=2)):
+        out = SinglePassInferenceEngine(model, discretizer).run(loader)["final_assignments"]
+        assert out.shape == (batch, n) and ((out == 0) | (out == 1)).all()
+    out = ITSELF_Engine(
+        model, evaluator, mpe_log_likelihood_loss, torch.optim.Adam, FirstHalfDiscretizer(), 0.1, 3
+    ).run(loader)["final_assignments"]
+    evidence_mask = data[1]
+    assert torch.equal(out[evidence_mask], data[0].long()[evidence_mask])
+    # The trained solver sets the query variables to 1, which the evaluator prefers
+    assert (out[~evidence_mask] == 1).all()
+
+
+# ----------------------------------------------------------------------------------------
+# Time limits
+# ----------------------------------------------------------------------------------------
+
+
+class SlowEvaluator(torch.nn.Module):
+    """An evaluator that takes `delay` seconds per call, preferring the all-ones assignment."""
+
+    def __init__(self, delay):
+        super().__init__()
+        self.delay = delay
+        self.calls = 0
+
+    def forward(self, x):
+        import time
+
+        time.sleep(self.delay)
+        self.calls += 1
+        return -((x - 1.0) ** 2).sum(dim=1)
+
+
+def _time_limit_setup(n=8, batch=3):
+    data = make_query_batch(n, batch, "mixed", seed=3)
+    data = (data[0].float(), *data[1:])
+    torch.manual_seed(0)
+    model = MLP([8], n, embedding=DiscreteEmbedder(n))
+    return data, model
+
+
+@pytest.mark.parametrize("make", [
+    lambda pm: KNearestDiscretizer(pm, k=64, time_limit=0),
+    lambda pm: OAUAI(pm, k=3, time_limit=0),
+    lambda pm: BestOfDiscretizer(pm, [OAUAI(pm, k=3), KNearestDiscretizer(pm, k=64)], time_limit=0),
+])
+def test_discretizer_with_no_time_returns_thresholded_incumbent(make):
+    pm = SlowEvaluator(0.0)
+    probs = torch.rand(3, 8)
+    query_mask = torch.ones(3, 8, dtype=torch.bool)
+    out = make(pm)(probs, query_mask, ~query_mask, torch.zeros_like(query_mask))
+    assert torch.equal(out, (probs >= 0.5).float())
+    # A deadline from the caller is honoured the same way
+    out = KNearestDiscretizer(pm, k=64)(probs, query_mask, deadline=0.0)
+    assert torch.equal(out, (probs >= 0.5).float())
+
+
+def test_discretizer_time_limit_keeps_best_incumbent():
+    """With the clock running out mid-search, the result is still at least as good as
+    thresholding, and the search stops within the budget."""
+    import time
+
+    pm = SlowEvaluator(0.05)
+    probs = torch.rand(4, 8)
+    query_mask = torch.ones(4, 8, dtype=torch.bool)
+    knn = KNearestDiscretizer(pm, k=256, batch_size=16, time_limit=0.3)
+    t0 = time.monotonic()
+    out = knn(probs, query_mask)
+    elapsed = time.monotonic() - t0
+    assert elapsed < 1.5
+    assert (pm(out) >= pm((probs >= 0.5).float())).all()
+    assert torch.equal(out[probs >= 0.9], torch.ones_like(out[probs >= 0.9]))
+
+
+def test_single_pass_time_limit():
+    data, model = _time_limit_setup()
+    pm = SlowEvaluator(0.0)
+    engine = SinglePassInferenceEngine(model, KNearestDiscretizer(pm, k=64), time_limit=0)
+    out = engine.run(data)
+    assert out["time_limit_reached"].tolist() == [True]
+    assert out["elapsed_seconds"].shape == (1,)
+    thresholded = torch.where(data[1], data[0], (out["prob_outputs"] >= 0.5).float())
+    assert torch.equal(out["final_assignments"], thresholded.int())
+    evidence = data[1]
+    assert torch.equal(out["final_assignments"][evidence], data[0].long()[evidence])
+
+    unlimited = SinglePassInferenceEngine(model, KNearestDiscretizer(pm, k=64)).run(data)
+    assert unlimited["time_limit_reached"].tolist() == [False]
+
+    # A discretizer without a `deadline` argument still works with a time limit
+    class Plain(ThresholdDiscretizer):
+        pass
+
+    out = SinglePassInferenceEngine(model, Plain(), time_limit=0).run(data)
+    assert out["final_assignments"].shape == data[0].shape
+
+    with pytest.raises(ValueError, match="time_limit"):
+        SinglePassInferenceEngine(model, Plain(), time_limit=-1)
+
+
+def test_itself_time_limits():
+    data, model = _time_limit_setup()
+    loader = DataLoader(TensorDataset(*data), batch_size=2)  # 2 batches
+
+    def engine(**kw):
+        return ITSELF_Engine(
+            model, SlowEvaluator(0.0), mpe_log_likelihood_loss, torch.optim.Adam,
+            ThresholdDiscretizer(), 1e-2, refinement_steps=5, **kw,
+        )
+
+    out = engine().run(loader)
+    assert out["refinement_steps_run"].tolist() == [5, 5]
+    assert out["time_limit_reached"].tolist() == [False, False]
+    assert out["elapsed_seconds"].shape == (2,)
+
+    out = engine(refinement_time_limit=0).run(loader)
+    assert out["refinement_steps_run"].tolist() == [0, 0]
+    assert out["time_limit_reached"].tolist() == [True, True]
+
+    # The total budget cuts the refinement short but still produces a valid answer
+    slow = ITSELF_Engine(
+        model, SlowEvaluator(0.05), mpe_log_likelihood_loss, torch.optim.Adam,
+        KNearestDiscretizer(SlowEvaluator(0.05), k=64), 1e-2, refinement_steps=50, time_limit=0.2,
+    )
+    out = slow.run(loader)
+    assert (out["refinement_steps_run"] < 50).all()
+    assert (out["elapsed_seconds"] < 1.5).all()
+    evidence = data[1]
+    assert torch.equal(out["final_assignments"][evidence], data[0].long()[evidence])
+
+
+def test_itself_reserves_time_for_the_discretizer():
+    """Refinement may use at most (1 - fraction) of the budget when the discretizer can use
+    time, so the discretizer always gets to run."""
+    data, model = _time_limit_setup(batch=2)
+    loader = DataLoader(TensorDataset(*data), batch_size=2)
+
+    def run(discretizer, **kw):
+        pm = SlowEvaluator(0.02)
+        engine = ITSELF_Engine(
+            model, pm, mpe_log_likelihood_loss, torch.optim.Adam, discretizer, 1e-2,
+            refinement_steps=1000, time_limit=0.5, **kw,
+        )
+        out = engine.run(loader)
+        return out, pm.calls
+
+    assert ITSELF_Engine(
+        model, SlowEvaluator(0), mpe_log_likelihood_loss, torch.optim.Adam, ThresholdDiscretizer(), 1e-2, 1
+    ).discretizer_time_fraction == 0.1
+
+    reserved_scorer = SlowEvaluator(0.02)
+    out, reserved_steps = run(KNearestDiscretizer(reserved_scorer, k=8, batch_size=1), discretizer_time_fraction=0.4)
+    assert out["time_limit_reached"].tolist() == [True]
+
+    # With the reserve disabled, refinement uses the whole budget and the discretizer only
+    # returns its incumbent
+    full_scorer = SlowEvaluator(0.02)
+    out, full_steps = run(KNearestDiscretizer(full_scorer, k=8, batch_size=1), discretizer_time_fraction=0)
+    assert reserved_steps < full_steps
+    assert reserved_scorer.calls > full_scorer.calls
+    assert full_scorer.calls <= 2  # at most the thresholded-vs-best comparison
+
+    # Thresholding needs no time, so nothing is reserved for it
+    out, threshold_steps = run(ThresholdDiscretizer(), discretizer_time_fraction=0.4)
+    assert threshold_steps > reserved_steps
+
+    with pytest.raises(ValueError, match="discretizer_time_fraction"):
+        ITSELF_Engine(model, SlowEvaluator(0), mpe_log_likelihood_loss, torch.optim.Adam,
+                      ThresholdDiscretizer(), 1e-2, 1, discretizer_time_fraction=1.0)
+
+
+def test_stage_budgets_accept_seconds_or_percentages():
+    from neupi.utils.timing import stage_time_limit, time_share
+
+    assert stage_time_limit(None, 2.0, "x") is None
+    assert stage_time_limit(0.3, None, "x") == 0.3
+    assert stage_time_limit("25%", 2.0, "x") == 0.5
+    assert stage_time_limit(" 12.5 % ", 2.0, "x") == 0.25
+    assert time_share(0.1, "x") == 0.1 and time_share("10%", "x") == 0.1
+    for bad in ("25", "abc%", "150%", -1):
+        with pytest.raises(ValueError):
+            stage_time_limit(bad, 2.0, "x")
+    with pytest.raises(ValueError, match="time_limit must be set"):
+        stage_time_limit("25%", None, "x")
+    for bad in (1.0, "100%", -0.1, True):
+        with pytest.raises(ValueError):
+            time_share(bad, "x")
+
+    data, model = _time_limit_setup()
+    pm = SlowEvaluator(0.0)
+
+    def itself(**kw):
+        return ITSELF_Engine(model, pm, mpe_log_likelihood_loss, torch.optim.Adam,
+                             ThresholdDiscretizer(), 1e-2, 3, **kw)
+
+    engine = itself(time_limit=2.0, refinement_time_limit="70%", discretizer_time_limit="30%",
+                    discretizer_time_fraction="20%")
+    assert engine.refinement_time_limit == pytest.approx(1.4)
+    assert engine.discretizer_time_limit == pytest.approx(0.6)
+    assert engine.discretizer_time_fraction == pytest.approx(0.2)
+    assert itself(refinement_time_limit=0.5).refinement_time_limit == 0.5
+    with pytest.raises(ValueError, match="time_limit must be set"):
+        itself(discretizer_time_limit="30%")
+
+    # A 0% stage budget stops that stage immediately
+    out = itself(time_limit=10.0, refinement_time_limit="0%").run(data)
+    assert out["refinement_steps_run"].tolist() == [0]
+    out = SinglePassInferenceEngine(model, KNearestDiscretizer(pm, k=64), time_limit=10.0,
+                                    discretizer_time_limit="0%").run(data)
+    assert out["time_limit_reached"].tolist() == [True]
+
+
+@pytest.mark.parametrize("budget", [{"discretizer_time_limit": "40%"}, {"discretizer_time_limit": 0.2}])
+def test_itself_reserves_the_given_discretizer_budget(budget):
+    """A per-step discretizer budget is kept back from refinement, as seconds or a percentage."""
+    data, model = _time_limit_setup(batch=2)
+    loader = DataLoader(TensorDataset(*data), batch_size=2)
+
+    def run(**kw):
+        pm, scorer = SlowEvaluator(0.02), SlowEvaluator(0.02)
+        out = ITSELF_Engine(
+            model, pm, mpe_log_likelihood_loss, torch.optim.Adam,
+            KNearestDiscretizer(scorer, k=8, batch_size=1), 1e-2,
+            refinement_steps=1000, time_limit=0.5, **kw,
+        ).run(loader)
+        return out, pm.calls, scorer.calls
+
+    out, steps, scored = run(**budget)
+    _, steps_without, scored_without = run(discretizer_time_fraction=0)
+    assert out["time_limit_reached"].tolist() == [True]
+    assert steps < steps_without and scored > scored_without
