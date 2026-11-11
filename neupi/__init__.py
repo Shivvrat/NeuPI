@@ -2,7 +2,7 @@
 """NeuPI: Neural-Probabilistic Inference Library"""
 
 # Expose the version of the package
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 
 # Expose the factory function as the main entry point
 # Queries

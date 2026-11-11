@@ -4,7 +4,7 @@ All notable changes to NeuPI. Versions follow [semantic versioning](https://semv
 each release is on [PyPI](https://pypi.org/project/neupi/) and
 [GitHub](https://github.com/Shivvrat/NeuPI/releases).
 
-## Unreleased
+## 1.4.0 (2026-11-11)
 
 ### New
 - Wheels for macOS (Apple silicon) and Windows (x86_64) besides Linux x86_64, and a source
