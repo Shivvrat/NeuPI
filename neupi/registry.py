@@ -1,6 +1,5 @@
 # neupi/registry.py
 """A lightweight registry for plug-in components."""
-import functools
 from typing import Any, Callable, Dict
 
 _REGISTRY: Dict[str, Dict[str, Callable[..., Any]]] = {}

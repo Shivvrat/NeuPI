@@ -6,7 +6,7 @@ def test_package_import():
     Tests that the main 'neupi' package can be imported.
     """
     try:
-        import neupi
+        import neupi  # noqa: F401
     except ImportError as e:
         pytest.fail(f"Failed to import the 'neupi' package. Error: {e}")
 
@@ -17,6 +17,6 @@ def test_cython_module_import():
     This is a crucial check for the build process.
     """
     try:
-        from neupi.training.pm_ssl.io import uai_reader_cython
+        from neupi.training.pm_ssl.io import uai_reader_cython  # noqa: F401
     except ImportError as e:
         pytest.fail(f"Failed to import the Cython module 'uai_reader_cython'. Error: {e}")

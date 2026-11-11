@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest a new model type, query, solver, discretizer or other feature
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: The task or use case, and what is missing or hard with NeuPI today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How it could work. If it implements a method from a paper, link the paper.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds you use now

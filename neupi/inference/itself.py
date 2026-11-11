@@ -1,6 +1,6 @@
 import copy
 import time
-from typing import Dict, List, Optional, Type, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
@@ -94,8 +94,8 @@ class ITSELF_Engine(BaseInferenceModule):
         self,
         model: torch.nn.Module,
         pgm_evaluator: torch.nn.Module,
-        loss_fn: callable,
-        optimizer_cls: Type[torch.optim.Optimizer],
+        loss_fn: Callable,
+        optimizer_cls: Callable[..., torch.optim.Optimizer],
         discretizer: torch.nn.Module,
         refinement_lr: float,
         refinement_steps: int,
@@ -162,6 +162,7 @@ class ITSELF_Engine(BaseInferenceModule):
         timings: List[dict] = []
 
         # Determine if input is DataLoader or a single batch
+        batch_iter: Iterable
         if isinstance(data, DataLoader):
             batch_iter = data
         elif isinstance(data, (tuple, list)) and len(data) == 4:

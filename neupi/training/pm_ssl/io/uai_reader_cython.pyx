@@ -121,7 +121,7 @@ cdef class ProbTableSameSizeNumpy:
     @cython.cdivision(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def __cinit__(self, cnp.ndarray[long, ndim=2] variables, cnp.ndarray[long, ndim=2] domains, cnp.ndarray tables):
+    def __cinit__(self, cnp.ndarray[cnp.int64_t, ndim=2] variables, cnp.ndarray[cnp.int64_t, ndim=2] domains, cnp.ndarray tables):
         """
         Initialize the ProbTableSameSizeNumpy with the given variables, domains, and tables.
         
@@ -151,7 +151,7 @@ cdef class ProbTableSameSizeNumpy:
     @cython.cdivision(True)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cpdef cnp.ndarray instantiate_evidence(self, long[:] evidence):
+    cpdef cnp.ndarray instantiate_evidence(self, cnp.int64_t[:] evidence):
         """
         Instantiate evidence for all factors of the same size.
         
@@ -425,7 +425,7 @@ cdef class UAIParser:
         self.num_vars = int(self.read_next_token(file_iter))
 
         # Parse the domain sizes for each variable
-        self.domain_sizes = np.array([int(self.read_next_token(file_iter)) for _ in range(self.num_vars)])
+        self.domain_sizes = np.array([int(self.read_next_token(file_iter)) for _ in range(self.num_vars)], dtype=np.int64)
 
         # Parse the number of cliques
         self.num_cliques = int(self.read_next_token(file_iter))
@@ -516,8 +516,8 @@ cdef class UAIParser:
 
             # Also store the numpy version of the tables
             tables_np = np.array(self.clique_dict_parameters_list[key])
-            variables_np = np.array(self.clique_dict_variables_list[key])
-            domains_np = np.array(self.clique_dict_domains_list[key])
+            variables_np = np.array(self.clique_dict_variables_list[key], dtype=np.int64)
+            domains_np = np.array(self.clique_dict_domains_list[key], dtype=np.int64)
             self.clique_dict_class_np[key] = ProbTableSameSizeNumpy(variables_np, domains_np, tables_np)
 
 
@@ -599,7 +599,7 @@ cdef class UAIParser:
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cpdef tuple instantiate_evidence_same_size_cliques_np(self, long[:,:] batch_data, cnp.ndarray[cnp.uint8_t, ndim=2] evidence_bool):
+    cpdef tuple instantiate_evidence_same_size_cliques_np(self, cnp.int64_t[:,:] batch_data, cnp.ndarray[cnp.uint8_t, ndim=2] evidence_bool):
         cdef Py_ssize_t batch_size = batch_data.shape[0]
         cdef Py_ssize_t i
 
@@ -607,7 +607,7 @@ cdef class UAIParser:
         # Pre-allocate output arrays
         cdef cnp.ndarray[cnp.float32_t, ndim=3] all_tables = np.zeros((batch_size, self.num_cliques, int(2**self.max_vars_in_clique)), dtype=np.float32)
 
-        cdef cnp.ndarray[long, ndim=1] example
+        cdef cnp.ndarray[cnp.int64_t, ndim=1] example
         cdef cnp.ndarray[cnp.uint8_t, ndim=1] evidence_for_example
         cdef cnp.ndarray tables_array
         cdef cnp.ndarray updated_tables 

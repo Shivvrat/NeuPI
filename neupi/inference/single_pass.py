@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
@@ -94,6 +94,7 @@ class SinglePassInferenceEngine(BaseInferenceModule):
         limit_reached: List[bool] = []
 
         # Determine input type
+        batch_iter: Iterable
         if isinstance(data, DataLoader):
             batch_iter = data
         elif isinstance(data, (tuple, list)) and len(data) == 4:

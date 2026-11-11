@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Type
 
 import torch
 import torch.nn as nn
@@ -50,7 +50,16 @@ class MLP(BaseNNModel):
                 "to feed the raw assignment."
             )
         self.embedding = embedding
+        # The constructor arguments, used by neupi.save_solver to rebuild the network
+        self.config = {
+            "hidden_sizes": list(hidden_sizes),
+            "output_size": output_size,
+            "hidden_activation": hidden_activation,
+            "use_batchnorm": use_batchnorm,
+            "dropout_rate": dropout_rate,
+        }
 
+        activation_fn: Type[nn.Module]
         if hidden_activation == "relu":
             activation_fn = nn.ReLU
         elif hidden_activation == "leaky_relu":
@@ -58,7 +67,7 @@ class MLP(BaseNNModel):
         else:
             raise ValueError("Unsupported activation function.")
 
-        layers = []
+        layers: List[nn.Module] = []
         current_size = embedding.embedding_size
         for hidden_size in hidden_sizes:
             layers.append(nn.Linear(current_size, hidden_size))
@@ -74,6 +83,10 @@ class MLP(BaseNNModel):
 
         self.initialize_weights(hidden_activation)
 
+    def get_config(self) -> dict:
+        """The constructor arguments other than `embedding`."""
+        return dict(self.config)
+
     def initialize_weights(self, nonlinearity: str = "relu"):
         """
         Initializes the weights of the network using appropriate methods.
@@ -83,7 +96,7 @@ class MLP(BaseNNModel):
                 nn.init.kaiming_normal_(
                     layer.weight,
                     mode="fan_in",
-                    nonlinearity=nonlinearity,
+                    nonlinearity=nonlinearity,  # type: ignore[arg-type]
                 )
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias)

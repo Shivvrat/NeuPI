@@ -1,10 +1,8 @@
-import os
 import re
 import subprocess
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from neupi import ProbabilisticGraphicalModel, mpe_log_likelihood_loss

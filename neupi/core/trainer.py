@@ -1,7 +1,6 @@
 # neupi/core/trainer.py
 import abc
 
-import torch
 from torch import nn
 
 
@@ -18,6 +17,6 @@ class BaseTrainer(abc.ABC):
         """Performs a single optimization step."""
         ...
 
-    def fit(self, dataloader):
+    def fit(self, dataloader, *args, **kwargs):
         """Runs the main training loop."""
         ...

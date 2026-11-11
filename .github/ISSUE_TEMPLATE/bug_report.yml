@@ -1,0 +1,54 @@
+name: Bug report
+description: NeuPI crashes, raises an unexpected error, or gives a wrong result
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please report problems even if you found a workaround: other users probably hit them too.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: model
+    attributes:
+      label: Probabilistic model
+      description: |
+        The model type (UAI Markov or Bayesian network, SPN JSON, MADE, your own evaluator), the number of variables, the factor sizes (e.g. "pairwise only, no unary factors"), and where it comes from. If you can, attach the file (zipped) or a small model that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code to reproduce
+      description: A minimal script, if possible.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Full error message / traceback
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `python -c "import neupi, torch, sys, platform; print(neupi.__version__, torch.__version__, sys.version, platform.platform())"`
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How NeuPI was installed
+      options:
+        - pip install neupi (wheel)
+        - pip install neupi (built from the source distribution)
+        - From a clone (pip install -e .)
+        - Other
+    validations:
+      required: true

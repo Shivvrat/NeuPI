@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from neupi.core.discretizer import BaseDiscretizer
@@ -35,9 +37,9 @@ class ThresholdDiscretizer(BaseDiscretizer):
     def __call__(
         self,
         prob_outputs: torch.Tensor,
-        query_mask: torch.Tensor = None,
-        evidence_mask: torch.Tensor = None,
-        unobs_mask: torch.Tensor = None,
+        query_mask: Optional[torch.Tensor] = None,
+        evidence_mask: Optional[torch.Tensor] = None,
+        unobs_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Converts a tensor of probabilities to binary assignments.

@@ -5,11 +5,17 @@
 __version__ = "1.3.1"
 
 # Expose the factory function as the main entry point
+# Queries
+from .data import QueryDataset, make_query_masks
+
 # Discretizers
 from .discretize.combined import BestOfDiscretizer
 from .discretize.kn import KNearestDiscretizer
 from .discretize.oauai import OAUAI
 from .discretize.threshold import ThresholdDiscretizer
+
+# Evaluation
+from .evaluation import compare_assignments, exact_inference, score_assignments
 
 # Embeddings
 from .embedding.discrete import DiscreteEmbedder
@@ -27,6 +33,9 @@ from .models.nn import MLP
 
 # Registry
 from .registry import get as factory
+
+# Saving and loading trained solvers
+from .serialization import load_solver, save_solver
 
 # Probabilistic models (as losses)
 from .training.pm_ssl.nam.made import MADE
@@ -56,4 +65,11 @@ __all__ = [
     "__version__",
     "mpe_log_likelihood_loss",
     "entropy_penalty",
+    "make_query_masks",
+    "QueryDataset",
+    "score_assignments",
+    "exact_inference",
+    "compare_assignments",
+    "save_solver",
+    "load_solver",
 ]

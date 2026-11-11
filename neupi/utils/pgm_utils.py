@@ -1,3 +1,5 @@
+from typing import Callable, Optional
+
 import torch
 
 
@@ -58,7 +60,7 @@ def mark_unobserved(assignments: torch.Tensor, unobs_mask: torch.Tensor) -> torc
     return torch.where(unobs_mask.bool(), torch.full_like(assignments, float("nan")), assignments)
 
 
-def check_marginalization(pgm_evaluator: torch.nn.Module) -> None:
+def check_marginalization(pgm_evaluator: Callable) -> None:
     """
     Raises a ValueError unless the evaluator can marginalize unobserved variables.
 
@@ -73,7 +75,9 @@ def check_marginalization(pgm_evaluator: torch.nn.Module) -> None:
 
 
 def evaluate_log_likelihood(
-    pgm_evaluator: torch.nn.Module, assignments: torch.Tensor, unobs_mask: torch.Tensor = None
+    pgm_evaluator: Callable[[torch.Tensor], torch.Tensor],
+    assignments: torch.Tensor,
+    unobs_mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Scores assignments with the evaluator, marginalizing out the unobserved variables.

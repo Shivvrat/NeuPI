@@ -56,8 +56,8 @@ class BestOfDiscretizer(BaseDiscretizer):
         self,
         prob_outputs: torch.Tensor,
         query_mask: torch.Tensor,
-        evidence_mask: torch.Tensor = None,
-        unobs_mask: torch.Tensor = None,
+        evidence_mask: Optional[torch.Tensor] = None,
+        unobs_mask: Optional[torch.Tensor] = None,
         deadline: Optional[float] = None,
     ) -> torch.Tensor:
         deadline = min_deadline(deadline, deadline_from(self.time_limit))

@@ -10,24 +10,26 @@ authors = [
 ]
 description = "A library of neural solvers for fast and accurate inference over Probabilistic Models."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "numpy>=1.24",
     "torch>=2.3.0", # Base requirement, defaults to CPU-only if a GPU version isn't already installed.
-    "cython>=3.0.11",
-    "setuptools>=70.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Shivvrat/NeuPI"
 Issues = "https://github.com/Shivvrat/NeuPI/issues"
+Documentation = "https://neupi.readthedocs.io"
+Changelog = "https://github.com/Shivvrat/NeuPI/blob/main/CHANGELOG.md"
 
 # Defines optional sets of dependencies.
 # A user can install them with `pip install neupi[gpu]`.
@@ -39,6 +41,12 @@ Issues = "https://github.com/Shivvrat/NeuPI/issues"
 # manually, following instructions from the official PyTorch website.
 # This 'gpu' extra serves as a marker and for potential future use.
 gpu = []
+# Development tools: tests, linting and type checking (versions as in CI)
+dev = [
+    "pytest",
+    "ruff==0.15.11",
+    "mypy==1.20.2",
+]
 # Docs dependencies
 # Same list as docs/requirements.txt (used by Read the Docs); building also needs pandoc
 docs = [
@@ -62,9 +70,40 @@ PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu"
 [tool.cibuildwheel]
 # Skip all PyPy builds, as they are failing due to the Cython C-API issue.
 # This allows us to still build and release wheels for all CPython versions.
-skip = "pp* *i686* *musllinux* *-win* *-macosx*"
+# Wheels are built for Linux x86_64, macOS arm64 and Windows AMD64, the platforms with
+# PyTorch wheels; other platforms install from the source distribution.
+skip = "pp* *i686* *musllinux* *-win32 *-win_arm64 *-macosx_x86_64 *-macosx_universal2"
+# Each wheel is installed in a clean environment and imported, and the oldest and newest
+# Python versions also run a quick part of the test suite (it needs PyTorch, which is large)
+test-requires = ["pytest"]
+test-command = "python -c \"import neupi; print(neupi.__version__)\""
 
+[[tool.cibuildwheel.overrides]]
+select = "cp39-* cp313-*"
+test-command = "pytest -q -p no:cacheprovider {project}/tests/test_import.py {project}/tests/discretize {project}/tests/inference"
 
 [tool.cibuildwheel.linux]
 # Build only for the x86_64 architecture on Linux, skipping i686.
 archs = ["x86_64"]
+
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = ["docs", "examples", "build"]
+
+[tool.ruff.lint]
+# Defaults (pyflakes and the pycodestyle errors), minus E741: single-letter names such as
+# `l` follow the papers' notation
+ignore = ["E741"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["neupi"]
+# The Cython extensions have no type stubs
+ignore_missing_imports = true

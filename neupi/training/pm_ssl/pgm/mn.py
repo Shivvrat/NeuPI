@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 
 from neupi.core.model import BaseProbModel
 from neupi.registry import register

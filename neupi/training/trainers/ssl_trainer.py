@@ -1,4 +1,6 @@
 import copy
+import time
+from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from neupi.core.trainer import BaseTrainer
@@ -35,7 +37,7 @@ class SelfSupervisedTrainer(BaseTrainer):
         self,
         model: torch.nn.Module,
         pgm_evaluator: torch.nn.Module,
-        loss_fn: callable,
+        loss_fn: Callable,
         optimizer: torch.optim.Optimizer,
         device: str = "cpu",
         entropy_weight: float = 0.0,
@@ -116,8 +118,10 @@ class SelfSupervisedTrainer(BaseTrainer):
         self,
         dataloader: DataLoader,
         num_epochs: int,
-        val_dataloader: DataLoader = None,
+        val_dataloader: Optional[DataLoader] = None,
         scheduler=None,
+        verbose: bool = True,
+        callback: Optional[Callable[[Dict[str, Any]], Optional[bool]]] = None,
     ):
         """
         Runs the full training loop for a specified number of epochs.
@@ -134,12 +138,21 @@ class SelfSupervisedTrainer(BaseTrainer):
                 validation loss (training loss if there is no validation set), e.g.
                 `ReduceLROnPlateau(optimizer, factor=0.9)`; other schedulers are stepped
                 without arguments.
+            verbose (bool): Print the losses after every epoch. Defaults to True.
+            callback (callable, optional): Called after every epoch with a dict with keys
+                "epoch" (1-based), "num_epochs", "train_loss", "val_loss" (None without a
+                validation set), "lr" and "seconds" (the epoch's duration). Returning True
+                stops training after that epoch, e.g. for early stopping or a time limit.
+
+        The per-epoch dicts are also kept in `self.history`.
         """
         best_state = None
         self.best_val_loss = float("inf")
-        self.best_epoch = None
+        self.best_epoch: Optional[int] = None
+        self.history: List[Dict[str, Any]] = []
         for epoch in range(num_epochs):
-            total_loss = 0
+            start = time.monotonic()
+            total_loss = 0.0
             for batch_data in dataloader:
                 loss = self.step(batch_data)
                 total_loss += loss
@@ -148,6 +161,7 @@ class SelfSupervisedTrainer(BaseTrainer):
             message = f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}"
 
             monitored_loss = avg_loss
+            val_loss = None
             if val_dataloader is not None:
                 val_loss = self.evaluate(val_dataloader)
                 message += f", Validation Loss: {val_loss:.4f}"
@@ -156,7 +170,18 @@ class SelfSupervisedTrainer(BaseTrainer):
                     self.best_val_loss = val_loss
                     self.best_epoch = epoch + 1
                     best_state = copy.deepcopy(self.model.state_dict())
-            print(message)
+            if verbose:
+                print(message)
+
+            info = {
+                "epoch": epoch + 1,
+                "num_epochs": num_epochs,
+                "train_loss": avg_loss,
+                "val_loss": val_loss,
+                "lr": self.optimizer.param_groups[0]["lr"],
+                "seconds": time.monotonic() - start,
+            }
+            self.history.append(info)
 
             if scheduler is not None:
                 if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -164,8 +189,14 @@ class SelfSupervisedTrainer(BaseTrainer):
                 else:
                     scheduler.step()
 
+            if callback is not None and callback(info):
+                if verbose:
+                    print(f"Stopped by the callback after epoch {epoch + 1}")
+                break
+
         if best_state is not None:
             self.model.load_state_dict(best_state)
-            print(f"Restored weights from epoch {self.best_epoch} (Validation Loss: {self.best_val_loss:.4f})")
+            if verbose:
+                print(f"Restored weights from epoch {self.best_epoch} (Validation Loss: {self.best_val_loss:.4f})")
 
         return self.model

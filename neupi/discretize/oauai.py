@@ -73,7 +73,7 @@ class OAUAI(BaseDiscretizer):
         self._warned_large_k = False
 
     @torch.no_grad()
-    def __call__(
+    def __call__(  # type: ignore[override]  # OAUAI needs all the masks
         self,
         prob_outputs: torch.Tensor,
         query_mask: torch.Tensor,

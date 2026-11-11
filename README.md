@@ -23,6 +23,8 @@ First, ensure you have PyTorch installed (with a GPU version if you want to use 
 pip install neupi
 ```
 
+Wheels are available for Linux (x86_64), macOS (Apple silicon) and Windows (x86_64) on Python 3.9+. On other platforms pip builds NeuPI from the source distribution, which needs a C++ compiler (OpenMP is used if available; set `NEUPI_OPENMP=0` to build without it).
+
 ### From Source
 
 Then, clone the repository and install the library and its dependencies.
@@ -46,6 +48,8 @@ pip install -e .
   * `MADE`: masked autoregressive networks. Like the other models, calling it returns the log-likelihood of each assignment; `get_logits(x)` returns the network's per-variable logits.
 * **Marginal MAP (MMAP)**: Supported for probabilistic circuits (`SumProductNetwork`) only. Mark the variables to sum out in `unobs_mask`; the trainer, ITSELF and the discretizers marginalize them out (internally they are passed to the circuit as NaN). Other models raise a `ValueError` when `unobs_mask` is non-empty. The returned assignments are not meaningful at unobserved positions.
 * **Time limits**: `SinglePassInferenceEngine` and `ITSELF_Engine` take a `time_limit` in seconds per batch of queries (use a batch size of 1 for a per-query limit) covering the forward pass, the ITSELF refinement and the discretizer, plus optional per-stage limits (`refinement_time_limit`, `discretizer_time_limit`), each given in seconds or as a percentage of `time_limit` (e.g. `"30%"`). ITSELF keeps time back for a search discretizer so refinement cannot use it all: the `discretizer_time_limit` if given, otherwise `discretizer_time_fraction` of the budget (default 10%, also accepted as `"10%"`). `KNearestDiscretizer`, `OAUAI` and `BestOfDiscretizer` also take their own `time_limit`. When a budget runs out, the current best incumbent is returned (at worst the thresholded assignment), and `run` reports `elapsed_seconds` and `time_limit_reached` per batch.
+* **Queries, evaluation and saving**: `make_query_masks` and `QueryDataset` build queries; `exact_inference`, `score_assignments` and `compare_assignments` check and compare solutions; `save_solver` and `load_solver` store trained solvers. See the example below.
+* **Training progress**: `SelfSupervisedTrainer.fit` prints the losses per epoch (`verbose=False` to silence it), keeps them in `trainer.history`, and calls an optional `callback` after each epoch that can stop training.
 * **Extensible**: Easily register your own custom components using the built-in factory system.
 
 ## Quick Start
@@ -60,6 +64,44 @@ The core idea of NeuPI is to train a neural network to act as a fast approximato
 4. **Perform Inference**: Once the model is trained, use an inference engine to solve new queries. The `SinglePassInferenceEngine` provides a fast solution by performing one forward pass. For higher accuracy, the `ITSELF_Engine`  can be used to perform test-time fine-tuning on each new query, leveraging the PM evaluator to refine the solution.
 
 5. **Discretize the Output**: The neural network outputs continuous probabilities. The final step is to convert these into a discrete binary (0/1) assignment using a `Discretizer`. You can use a simple `ThresholdDiscretizer` for speed or more advanced methods like `KNearestDiscretizer` and `OAUAI` to find higher-scoring final assignments.
+
+### End-to-end example
+
+```python
+import torch
+from torch.utils.data import DataLoader
+import neupi
+
+pgm = neupi.ProbabilisticGraphicalModel("examples/networks/mn/Grids_17.uai")
+num_vars = pgm.num_variables
+
+# Queries: evidence values from samples (here random), 40% of the variables are query variables
+samples = torch.randint(0, 2, (1000, num_vars))
+train = neupi.QueryDataset.from_split(samples[:900], query_ratio=0.4, seed=0)
+test = neupi.QueryDataset.from_split(samples[900:], query_vars=train.query_mask[0].nonzero().flatten())
+
+# Train a solver
+model = neupi.MLP([128, 64], num_vars, neupi.DiscreteEmbedder(num_vars))
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+trainer = neupi.SelfSupervisedTrainer(model, pgm, neupi.mpe_log_likelihood_loss, optimizer)
+trainer.fit(DataLoader(train, batch_size=64, shuffle=True), num_epochs=5)
+
+# Save it, load it, and answer the test queries
+neupi.save_solver("solver.pt", model, metadata={"model": "Grids_17.uai", "query_ratio": 0.4})
+model = neupi.load_solver("solver.pt")
+engine = neupi.SinglePassInferenceEngine(model, neupi.KNearestDiscretizer(pgm, k=10))
+solution = engine.run(DataLoader(test, batch_size=100))["final_assignments"]
+
+# Compare with thresholding (gaps are relative to the reference method)
+threshold = neupi.SinglePassInferenceEngine(model, neupi.ThresholdDiscretizer()).run(test[:])
+results = neupi.compare_assignments(
+    pgm, {"k-nearest": solution, "threshold": threshold["final_assignments"]}, reference="k-nearest"
+)
+for name, r in results.items():
+    print(f"{name}: mean log-likelihood {r['mean_log_likelihood']:.2f}, mean gap {r['mean_gap']:.2f}")
+```
+
+`exact_inference(pgm, evidence_data, evidence_mask, query_mask)` solves queries exactly by enumeration (2^(query variables) evaluations each), which is useful to check solvers on small queries.
 
 ## Examples
 
@@ -96,6 +138,8 @@ To ensure all components are working correctly, run the test suite using `pytest
 ```bash
 pytest
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, linting and type checks, and [CHANGELOG.md](CHANGELOG.md) for the changes in each release. Please [report bugs](https://github.com/Shivvrat/NeuPI/issues/new/choose), including models NeuPI fails on, even if you found a workaround.
 
 ### 📖 Citation
 

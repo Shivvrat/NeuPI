@@ -2,7 +2,8 @@
 
 name: Build and Publish to PyPI
 
-# Every push to main is tested and its wheels are built. If the push sets a new version
+# Every push to main is linted, type checked and tested, and its wheels and source
+# distribution are built and tested. If the push sets a new version
 # (the version in pyproject.toml has no vX.Y.Z tag yet), the wheels are published to PyPI
 # and the vX.Y.Z tag and GitHub release are created. The release notes are the message of
 # the commit that set the version in pyproject.toml. A push that does not change the
@@ -70,6 +71,31 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Pinned, so a new release of a tool cannot fail a push that changed nothing
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install "numpy>=1.24" ruff==0.15.11 mypy==1.20.2
+
+      - name: Ruff
+        run: ruff check neupi tests setup.py
+
+      - name: Mypy
+        run: mypy
+
   test:
     name: Run tests
     runs-on: ubuntu-latest
@@ -96,8 +122,13 @@ jobs:
         run: python -m pytest -q --ignore=tests/losses
 
   build_wheels:
-    name: Build Linux wheels
-    runs-on: ubuntu-latest # Run only on Linux
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux x86_64, macOS arm64 (macos-14) and Windows AMD64; see [tool.cibuildwheel]
+        os: [ubuntu-latest, macos-14, windows-latest]
 
     steps:
       - name: Checkout repository
@@ -109,21 +140,53 @@ jobs:
           python-version: '3.9' # A version to run cibuildwheel
 
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel
+        run: python -m pip install cibuildwheel==2.23.4
 
+      # The configuration in pyproject.toml is used; each wheel is also installed and tested
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
-        # The configuration in pyproject.toml will be used automatically.
 
       - name: Store wheels
         uses: actions/upload-artifact@v4
         with:
-          name: linux-wheels
-          path: ./wheelhouse
+          name: dist-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build and test the source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build the source distribution
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --sdist
+
+      # Install from the sdist alone (this compiles the extensions) and run a quick part of the
+      # tests from outside the checkout, so the installed package is the one tested
+      - name: Install and test it
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install dist/*.tar.gz pytest
+          cd "$RUNNER_TEMP"
+          python -m pytest -q -p no:cacheprovider "$GITHUB_WORKSPACE/tests/test_import.py" "$GITHUB_WORKSPACE/tests/discretize" "$GITHUB_WORKSPACE/tests/inference"
+
+      - name: Store the source distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
 
   release:
     name: Publish to PyPI and create the GitHub release
-    needs: [check_version, test, build_wheels]
+    needs: [check_version, lint, test, build_wheels, build_sdist]
     runs-on: ubuntu-latest
     # Only for a new version on main/master, and only after the tests and the build passed
     if: >-
@@ -140,12 +203,12 @@ jobs:
         with:
           fetch-depth: 0 # The full history, to find the commit that set the version
 
-      - name: Download all wheels
+      - name: Download the wheels and the source distribution
         uses: actions/download-artifact@v4
         with:
           path: dist
-          # The pattern matches the artifact name from the build job
-          pattern: linux-wheels
+          # Matches the artifact names of build_wheels and build_sdist
+          pattern: dist-*
           merge-multiple: true
 
       # PyPI first: if the upload fails, no tag is created and the release can be retried.
@@ -164,7 +227,7 @@ jobs:
           # The message of the commit that set this version in pyproject.toml, else the head commit
           bump=$(git log -1 --format=%H -S "version = \"$VERSION\"" "$GITHUB_SHA" -- pyproject.toml)
           git log -1 --format=%B "${bump:-$GITHUB_SHA}" > release-notes.md
-          gh release create "v$VERSION" dist/*.whl \
+          gh release create "v$VERSION" dist/* \
             --target "$GITHUB_SHA" \
             --title "v$VERSION" \
             --notes-file release-notes.md
