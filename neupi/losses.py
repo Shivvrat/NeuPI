@@ -12,13 +12,14 @@ def entropy_penalty(
     Entropy penalty over the query variables, added to the negative log-likelihood loss.
 
     For each sample, l_E(q, alpha) = -alpha * sum_{j in Q} [q_j log(q_j) + (1 - q_j) log(1 - q_j)],
-    where Q is the set of query variables. It pushes the relaxed predictions towards 0/1;
-    alpha = 0 gives the plain continuous loss.
+    where Q is the set of query variables. With alpha > 0 it pushes the relaxed predictions
+    towards 0/1; alpha = 0 gives the plain continuous loss. A negative alpha is an entropy bonus
+    that keeps the predictions soft.
 
     Args:
         predictions (torch.Tensor): Probabilities in [0, 1]. Shape: (batch_size, num_variables).
         query_mask (torch.Tensor): Boolean mask of the query variables. Same shape as `predictions`.
-        alpha (float): Weight of the penalty (alpha >= 0).
+        alpha (float): Weight of the penalty; negative for a bonus.
         aggregate (str): "avg" or "sum" over the batch, as in `mpe_log_likelihood_loss`.
         eps (float): Predictions are clamped to [eps, 1 - eps] to keep the logarithms finite.
 

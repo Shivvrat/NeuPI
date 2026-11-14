@@ -45,7 +45,8 @@ class ITSELF_Engine(BaseInferenceModule):
         patience (int): Number of consecutive steps below `tol` needed to stop. Defaults to 1.
         entropy_weight (float): Weight alpha of the entropy penalty over the query variables
                                (`neupi.losses.entropy_penalty`) added to the refinement loss.
-                               Defaults to 0.0 (no penalty).
+                               Negative values give an entropy bonus. Defaults to 0.0 (no
+                               penalty).
         entropy_aggregate (str): "avg" or "sum" over the batch for the entropy penalty.
                                Set it to match the loss's `aggregate`. Defaults to "avg".
         freeze_batchnorm (bool, optional): Whether BatchNorm layers use their running
@@ -110,8 +111,6 @@ class ITSELF_Engine(BaseInferenceModule):
         discretizer_time_limit: Optional[Union[float, str]] = None,
         discretizer_time_fraction: Union[float, str] = 0.1,
     ):
-        if entropy_weight < 0:
-            raise ValueError("entropy_weight must be non-negative.")
         if entropy_aggregate not in ("avg", "sum"):
             raise ValueError("entropy_aggregate must be 'avg' or 'sum'.")
         if tol is not None and tol < 0:
@@ -288,6 +287,7 @@ class ITSELF_Engine(BaseInferenceModule):
                 evidence_mask,
                 unobs_mask,
                 deadline=discretizer_deadline,
+                logits=final_raw,
             )
         timing = {
             "elapsed_seconds": time.monotonic() - start,

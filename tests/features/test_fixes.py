@@ -211,6 +211,64 @@ def test_trainer_restores_best_validation_epoch(mn_evaluator):
     assert trainer.evaluate(val_loader) == pytest.approx(trainer.best_val_loss, rel=1e-5)
 
 
+@pytest.mark.parametrize("selection", ["assignment", "loss", "custom"])
+def test_trainer_model_selection(mn_evaluator, selection):
+    n = mn_evaluator.num_variables
+    train_loader = DataLoader(TensorDataset(*[t.cpu() for t in make_batch(n, 16)]), batch_size=8)
+    val_loader = DataLoader(TensorDataset(*[t.cpu() for t in make_batch(n, 8, seed=1)]), batch_size=8)
+    model = make_model(n)
+    trainer = SelfSupervisedTrainer(
+        model=model,
+        pgm_evaluator=mn_evaluator,
+        loss_fn=mpe_log_likelihood_loss,
+        optimizer=torch.optim.Adam(model.parameters(), lr=1e-2),
+        device=DEVICE,
+        entropy_weight=-1.0,
+    )
+    calls = []
+
+    def custom(model, loader):
+        assert not model.training and not torch.is_grad_enabled()
+        calls.append(1)
+        return float(-len(calls))  # prefers the last epoch
+
+    trainer.fit(
+        train_loader,
+        num_epochs=4,
+        val_dataloader=val_loader,
+        verbose=False,
+        selection=custom if selection == "custom" else selection,
+    )
+    scores = [h["val_score"] for h in trainer.history]
+    assert trainer.best_val_score == min(scores)
+    assert trainer.best_epoch == scores.index(min(scores)) + 1
+    if selection == "custom":
+        assert trainer.best_epoch == 4 and len(calls) == 4
+        return
+    restored = trainer.evaluate_assignments if selection == "assignment" else trainer.evaluate
+    assert restored(val_loader) == pytest.approx(trainer.best_val_score, rel=1e-5)
+    if selection == "loss":
+        assert trainer.best_val_score == trainer.best_val_loss
+
+
+def test_evaluate_assignments_scores_thresholded_answers(mn_evaluator):
+    n = mn_evaluator.num_variables
+    batch = [t.cpu() for t in make_batch(n, 8, seed=2)]
+    model = make_model(n)
+    trainer = SelfSupervisedTrainer(
+        model, mn_evaluator, mpe_log_likelihood_loss, torch.optim.Adam(model.parameters()), DEVICE
+    )
+    score = trainer.evaluate_assignments(DataLoader(TensorDataset(*batch), batch_size=3))
+    model.eval()
+    with torch.no_grad():
+        x, e, q, u = (t.to(DEVICE) for t in batch)
+        expected = torch.where(e.bool(), x, (model(x, e, q, u) > 0).float())
+        expected = -mn_evaluator(expected).double().mean().item()
+    assert score == pytest.approx(expected, rel=1e-5)  # float32 scores, other batching
+    with pytest.raises(ValueError, match="selection"):
+        trainer.fit(DataLoader(TensorDataset(*batch)), 1, DataLoader(TensorDataset(*batch)), selection="best")
+
+
 # --- ITSELF ---
 
 

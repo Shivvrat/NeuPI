@@ -15,6 +15,7 @@ This page provides an auto-generated summary of NeuPI's public API, generated di
    neupi.inference
    neupi.losses
    neupi.models
+   neupi.hparams
    neupi.registry
    neupi.serialization
    neupi.training

@@ -9,8 +9,8 @@ authors:
   - family-names: Gogate
     given-names: Vibhav
 title: "NeuPI: A Library for Neural Probabilistic Inference"
-version: 1.4.0
-date-released: 2026-11-11
+version: 1.5.0
+date-released: 2026-11-13
 url: "https://github.com/Shivvrat/NeuPI"
 repository-code: "https://github.com/Shivvrat/NeuPI"
 license: MIT

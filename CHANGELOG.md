@@ -4,6 +4,31 @@ All notable changes to NeuPI. Versions follow [semantic versioning](https://semv
 each release is on [PyPI](https://pypi.org/project/neupi/) and
 [GitHub](https://github.com/Shivvrat/NeuPI/releases).
 
+## 1.5.0 (2026-11-13)
+
+### New
+- `GUIDETrainer` (NeurIPS 2024, Algorithm 1): teacher-student training, in which a teacher fitted
+  to each mini-batch with ITSELF supplies labels for the student. Same `fit` interface as
+  `SelfSupervisedTrainer`.
+- `default_hparams(method, model_type)`: default hyperparameters for SSMP and GUIDE
+  (network, optimizer, scheduler, trainer, epochs and model selection, ITSELF and the
+  discretizers) as keyword-argument dicts.
+
+### Changed
+- `SelfSupervisedTrainer.fit` and `GUIDETrainer.fit` take `selection`, which sets how the
+  epoch to keep is chosen on the validation set: `"assignment"` (default, the mean negative
+  log-likelihood of the thresholded answers), `"loss"` (the relaxed validation loss) or a function `selection(model, val_dataloader) -> float`. The chosen
+  epoch's score is in `best_val_score`; `evaluate_assignments` computes the default score.
+- `entropy_weight` (in `SelfSupervisedTrainer`, `ITSELF_Engine` and `GUIDETrainer`) may be
+  negative, giving an entropy bonus that keeps the outputs soft during training.
+
+### Fixed
+- `KNearestDiscretizer` and `OAUAI` chose arbitrarily on trained networks whose logits are so
+  large that the sigmoid rounds to exactly 0 or 1. The inference engines now pass the logits,
+  and both discretizers rank variables by them (`k_nearest_from_logits` in float64).
+- `OAUAI` measures uncertainty as the distance from the discretizer's threshold, so a
+  threshold other than 0.5 ranks the variables correctly.
+
 ## 1.4.0 (2026-11-11)
 
 ### New

@@ -1,12 +1,17 @@
 import copy
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 from neupi.core.trainer import BaseTrainer
 from neupi.losses import entropy_penalty
 from neupi.registry import register
-from neupi.utils.pgm_utils import apply_evidence, check_marginalization, mark_unobserved
+from neupi.utils.pgm_utils import (
+    apply_evidence,
+    check_marginalization,
+    evaluate_log_likelihood,
+    mark_unobserved,
+)
 from torch.utils.data import DataLoader
 
 
@@ -28,7 +33,8 @@ class SelfSupervisedTrainer(BaseTrainer):
         device (str): The device to run training on ('cpu' or 'cuda').
         entropy_weight (float): Weight alpha of the entropy penalty over the query
                                 variables (`neupi.losses.entropy_penalty`) added to the loss.
-                                Defaults to 0.0 (no penalty).
+                                Negative values give an entropy bonus. Defaults to 0.0 (no
+                                penalty).
         entropy_aggregate (str): "avg" or "sum" over the batch for the entropy penalty.
                                  Set it to match the loss's `aggregate`. Defaults to "avg".
     """
@@ -43,8 +49,6 @@ class SelfSupervisedTrainer(BaseTrainer):
         entropy_weight: float = 0.0,
         entropy_aggregate: str = "avg",
     ):
-        if entropy_weight < 0:
-            raise ValueError("entropy_weight must be non-negative.")
         if entropy_aggregate not in ("avg", "sum"):
             raise ValueError("entropy_aggregate must be 'avg' or 'sum'.")
         self.model = model.to(device)
@@ -114,6 +118,35 @@ class SelfSupervisedTrainer(BaseTrainer):
             total_loss += self._compute_loss(batch_data).item()
         return total_loss / len(dataloader)
 
+    @torch.no_grad()
+    def evaluate_assignments(self, dataloader: DataLoader) -> float:
+        """
+        Returns the mean negative log-likelihood of the model's thresholded assignments on a
+        DataLoader (query variables set to 1 where the logit is positive, evidence kept), in
+        eval mode. For MMAP the unobserved variables are marginalized out.
+        """
+        self.model.eval()
+        total, count = 0.0, 0
+        for batch_data in dataloader:
+            evidence_data, evidence_mask, query_mask, unobs_mask = (
+                t.to(self.device) for t in batch_data
+            )
+            logits = self.model(evidence_data, evidence_mask, query_mask, unobs_mask)
+            assignments = apply_evidence((logits > 0).to(logits.dtype), evidence_data, evidence_mask)
+            ll = evaluate_log_likelihood(self.pgm_evaluator, assignments, unobs_mask)
+            total += -ll.double().sum().item()
+            count += ll.numel()
+        return total / count
+
+    def _selection_score(self, selection, val_dataloader: DataLoader, val_loss: float) -> float:
+        if selection == "loss":
+            return val_loss
+        if selection == "assignment":
+            return self.evaluate_assignments(val_dataloader)
+        self.model.eval()
+        with torch.no_grad():
+            return float(selection(self.model, val_dataloader))
+
     def fit(
         self,
         dataloader: DataLoader,
@@ -122,6 +155,7 @@ class SelfSupervisedTrainer(BaseTrainer):
         scheduler=None,
         verbose: bool = True,
         callback: Optional[Callable[[Dict[str, Any]], Optional[bool]]] = None,
+        selection: Union[str, Callable[[torch.nn.Module, DataLoader], float]] = "assignment",
     ):
         """
         Runs the full training loop for a specified number of epochs.
@@ -129,10 +163,11 @@ class SelfSupervisedTrainer(BaseTrainer):
         Args:
             dataloader (DataLoader): The DataLoader providing training data.
             num_epochs (int): The number of epochs to train for.
-            val_dataloader (DataLoader, optional): If given, the loss is computed on it
-                after every epoch, and the weights from the epoch with the lowest
-                validation loss are restored at the end (stored in `best_val_loss` and
-                `best_epoch`). If None, the final epoch's weights are kept.
+            val_dataloader (DataLoader, optional): If given, the loss and the `selection`
+                score are computed on it after every epoch, and the weights from the epoch
+                with the lowest score are restored at the end (the epoch is stored in
+                `best_epoch`, its score in `best_val_score` and its loss in
+                `best_val_loss`). If None, the final epoch's weights are kept.
             scheduler (optional): A learning-rate scheduler stepped once per epoch.
                 `torch.optim.lr_scheduler.ReduceLROnPlateau` is stepped with the
                 validation loss (training loss if there is no validation set), e.g.
@@ -143,11 +178,25 @@ class SelfSupervisedTrainer(BaseTrainer):
                 "epoch" (1-based), "num_epochs", "train_loss", "val_loss" (None without a
                 validation set), "lr" and "seconds" (the epoch's duration). Returning True
                 stops training after that epoch, e.g. for early stopping or a time limit.
+                With a validation set the dict also has "val_score".
+            selection (str or callable): How the epoch to keep is chosen on the validation
+                set (lower is better):
+
+                - "assignment" (default): the mean negative log-likelihood of the
+                  thresholded assignments (`evaluate_assignments`), i.e. the quality of
+                  the answers the network gives.
+                - "loss": the validation loss (relaxed predictions, with the entropy term).
+                - a function `selection(model, val_dataloader) -> float`, called with the
+                  model in eval mode and without gradients, e.g. to score assignments from
+                  another discretizer.
 
         The per-epoch dicts are also kept in `self.history`.
         """
+        if not callable(selection) and selection not in ("assignment", "loss"):
+            raise ValueError("selection must be 'assignment', 'loss' or a callable.")
         best_state = None
         self.best_val_loss = float("inf")
+        self.best_val_score = float("inf")
         self.best_epoch: Optional[int] = None
         self.history: List[Dict[str, Any]] = []
         for epoch in range(num_epochs):
@@ -162,11 +211,16 @@ class SelfSupervisedTrainer(BaseTrainer):
 
             monitored_loss = avg_loss
             val_loss = None
+            val_score = None
             if val_dataloader is not None:
                 val_loss = self.evaluate(val_dataloader)
                 message += f", Validation Loss: {val_loss:.4f}"
                 monitored_loss = val_loss
-                if val_loss < self.best_val_loss:
+                val_score = self._selection_score(selection, val_dataloader, val_loss)
+                if selection != "loss":
+                    message += f", Validation Score: {val_score:.4f}"
+                if val_score < self.best_val_score:
+                    self.best_val_score = val_score
                     self.best_val_loss = val_loss
                     self.best_epoch = epoch + 1
                     best_state = copy.deepcopy(self.model.state_dict())
@@ -189,6 +243,9 @@ class SelfSupervisedTrainer(BaseTrainer):
                 else:
                     scheduler.step()
 
+            if val_score is not None:
+                info["val_score"] = val_score
+
             if callback is not None and callback(info):
                 if verbose:
                     print(f"Stopped by the callback after epoch {epoch + 1}")
@@ -197,6 +254,9 @@ class SelfSupervisedTrainer(BaseTrainer):
         if best_state is not None:
             self.model.load_state_dict(best_state)
             if verbose:
-                print(f"Restored weights from epoch {self.best_epoch} (Validation Loss: {self.best_val_loss:.4f})")
+                print(
+                    f"Restored weights from epoch {self.best_epoch} "
+                    f"(Validation Score: {self.best_val_score:.4f}, Loss: {self.best_val_loss:.4f})"
+                )
 
         return self.model

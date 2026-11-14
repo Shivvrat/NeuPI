@@ -5,7 +5,13 @@ import torch
 from neupi.core.discretizer import BaseDiscretizer
 from neupi.registry import register
 from neupi.utils.pgm_utils import evaluate_log_likelihood
-from neupi.utils.timing import call_discretizer, deadline_from, expired, min_deadline, validate_time_limit
+from neupi.utils.timing import (
+    call_discretizer,
+    deadline_from,
+    expired,
+    min_deadline,
+    validate_time_limit,
+)
 
 
 @register("discretizer")
@@ -59,6 +65,7 @@ class BestOfDiscretizer(BaseDiscretizer):
         evidence_mask: Optional[torch.Tensor] = None,
         unobs_mask: Optional[torch.Tensor] = None,
         deadline: Optional[float] = None,
+        logits: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         deadline = min_deadline(deadline, deadline_from(self.time_limit))
         # The incumbent if no discretizer gets to run
@@ -68,7 +75,13 @@ class BestOfDiscretizer(BaseDiscretizer):
             if expired(deadline):
                 break
             assignments = call_discretizer(
-                discretizer, prob_outputs, query_mask, evidence_mask, unobs_mask, deadline=deadline
+                discretizer,
+                prob_outputs,
+                query_mask,
+                evidence_mask,
+                unobs_mask,
+                deadline=deadline,
+                logits=logits,
             )
             scores = evaluate_log_likelihood(self.pgm_evaluator, assignments, unobs_mask)
             if best_scores is None:

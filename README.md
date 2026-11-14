@@ -40,7 +40,9 @@ pip install -e .
 ## Key Features
 
 * **Self-Supervised Training**: Train neural solvers using only the Probabilistic Model—no labeled data required.
+* **Teacher-student training**: `GUIDETrainer` trains the network from labels found by a teacher network fitted to each mini-batch with ITSELF (GUIDE).
 * **Advanced Inference**: Includes the **ITSELF** (`Inference Time Self-Supervised Training`) engine for test-time refinement, significantly improving inference accuracy.
+* **Default hyperparameters**: `default_hparams` gives default hyperparameters for each method.
 * **Discretization**: Includes a simple `ThresholdDiscretizer` and more advanced methods like `KNearestDiscretizer` and `OAUAI` to find higher-scoring final assignments. `BestOfDiscretizer` combines several of them and keeps the best assignment per query (e.g. OAUAI | k-Nearest).
 * **Probabilistic models**: All variables must be binary.
   * `ProbabilisticGraphicalModel`: Markov networks and Bayesian networks in UAI format, with factors of any size and with or without unary factors. The network type is read from the file's `MARKOV` or `BAYES` header, so there is nothing to specify (`pgm.network_type` reports it). `MarkovNetwork` is the earlier name of the same class and still works.
@@ -103,6 +105,51 @@ for name, r in results.items():
 
 `exact_inference(pgm, evidence_data, evidence_mask, query_mask)` solves queries exactly by enumeration (2^(query variables) evaluations each), which is useful to check solvers on small queries.
 
+### Tuning hyperparameters
+
+`default_hparams(method, model_type="pgm")` gives default hyperparameters for `"ssmp"`
+(`SelfSupervisedTrainer`) and `"guide"` (`GUIDETrainer`), with one dict of keyword arguments per component:
+
+```python
+cfg = neupi.default_hparams("guide")  # model_type: "pgm", "pc" (SPN) or "nam" (MADE)
+model = neupi.MLP(output_size=n, embedding=neupi.DiscreteEmbedder(n), **cfg["model"])
+optimizer = torch.optim.Adam(model.parameters(), **cfg["optimizer"])
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg["scheduler"])
+trainer = neupi.GUIDETrainer(model, pgm, neupi.mpe_log_likelihood_loss, optimizer, **cfg["trainer"])
+trainer.fit(train_loader, val_dataloader=val_loader, scheduler=scheduler, **cfg["fit"])
+engine = neupi.ITSELF_Engine(trainer.model, pgm, neupi.mpe_log_likelihood_loss, torch.optim.Adam,
+                             neupi.KNearestDiscretizer(pgm, **cfg["discretizers"]["knn"]), **cfg["itself"])
+```
+
+Use `cfg["batch_size"]` for the DataLoaders.
+
+Fine-tune the hyperparameters for your model and query ratio: the learning rates, the number
+of epochs, the entropy weight (`entropy_weight`), the network size and, for ITSELF and GUIDE,
+the number of refinement steps. Choose them on validation queries (for example by the mean
+log-likelihood of the thresholded answers), and train long enough. A negative
+`entropy_weight` gives an entropy bonus, which keeps the outputs soft during training.
+
+### Model selection
+
+With a `val_dataloader`, `fit` keeps the weights of the best epoch on the validation queries
+and returns that model. `selection` sets what "best" means (lower is better):
+
+```python
+trainer.fit(train_loader, 100, val_dataloader=val_loader)                     # default: "assignment"
+trainer.fit(train_loader, 100, val_dataloader=val_loader, selection="loss")  # relaxed validation loss
+
+def knn_score(model, val_loader):  # any function of the model and the validation queries
+    engine = neupi.SinglePassInferenceEngine(model, neupi.KNearestDiscretizer(pgm, k=64))
+    answers = engine.run(val_loader)["final_assignments"]
+    return -neupi.score_assignments(pgm, answers).mean().item()
+
+trainer.fit(train_loader, 100, val_dataloader=val_loader, selection=knn_score)
+```
+
+`"assignment"` scores the thresholded answers (`trainer.evaluate_assignments`), the answers
+the network gives at test time. The chosen epoch and its score are in `trainer.best_epoch`
+and `trainer.best_val_score`.
+
 ## Examples
 
 Examples provided in the `examples` directory demonstrate:
@@ -122,6 +169,7 @@ The core components of NeuPI are directly linked to our published research. The 
 | Type          | Method / Component             | Primary Reference(s)                                                                                                                                                                                                                                                                                        | Description                                                                                                                                                  |
 | :------------ | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Trainer | `SelfSupervisedTrainer`        | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf), [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf)                                                                                                                                                                                                                                                                              | The core training loop for learning a neural solver by minimizing the negative log-likelihood provided by a PGM/PC evaluator (e.g., `ProbabilisticGraphicalModel`, `SumProductNetwork`).                              |
+| Trainer | `GUIDETrainer` | [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf) | Teacher-student training (GUIDE, Algorithm 1): a teacher fitted to each mini-batch with ITSELF finds assignments; the best per query are the labels for the student. |
 | Loss | `ProbabilisticGraphicalModel` and `SumProductNetwork`        | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf), [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf)                                                                                                                                                                                                                                                                              | This compute the negative log likelihood scores for the given Probabilistic Model which is used as the loss function to train the neural network.                              |
 | Embedding | `DiscreteEmbedder`             | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., NeurIPS 2024](https://shivvrat.github.io/papers/NeurIPS_12727_A_Neural_Network_Approac.pdf)                                                                                                                                                                                                                                                                        | A feature engineering module that creates (discrete) input representations from variable assignments and bucket information (evidence, query, unobserved).       |
 | Inference | `SinglePassInferenceEngine`    | [Arya et al., AAAI 2024](https://shivvrat.github.io/papers/AAAI_arya_2024_networkapproximatorsa.pdf), [Arya et al., AISTATS 2025 (SINE)](https://shivvrat.github.io/papers/SINE%20Scalable%20MPE%20Inference.pdf) | A standard inference pipeline involving a single forward pass of the neural network to produce an MPE/MMAP solution.                                        |

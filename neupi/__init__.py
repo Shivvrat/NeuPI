@@ -2,7 +2,7 @@
 """NeuPI: Neural-Probabilistic Inference Library"""
 
 # Expose the version of the package
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 # Expose the factory function as the main entry point
 # Queries
@@ -31,6 +31,9 @@ from .losses import entropy_penalty, mpe_log_likelihood_loss
 # Neural models
 from .models.nn import MLP
 
+# Default hyperparameters
+from .hparams import default_hparams
+
 # Registry
 from .registry import get as factory
 
@@ -43,6 +46,7 @@ from .training.pm_ssl.pc.spn import SumProductNetwork
 from .training.pm_ssl.pgm.mn import MarkovNetwork, ProbabilisticGraphicalModel
 
 # Trainers
+from .training.trainers.guide_trainer import GUIDETrainer
 from .training.trainers.ssl_trainer import SelfSupervisedTrainer
 
 # Control what 'from neupi import *' imports
@@ -54,6 +58,7 @@ __all__ = [
     "MADE",
     "MLP",
     "SelfSupervisedTrainer",
+    "GUIDETrainer",
     "SinglePassInferenceEngine",
     "ITSELF_Engine",
     "KNearestDiscretizer",
@@ -72,4 +77,5 @@ __all__ = [
     "compare_assignments",
     "save_solver",
     "load_solver",
+    "default_hparams",
 ]

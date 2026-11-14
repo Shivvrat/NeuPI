@@ -80,12 +80,16 @@ class OAUAI(BaseDiscretizer):
         evidence_mask: torch.Tensor,
         unobs_mask: torch.Tensor,
         deadline: Optional[float] = None,
+        logits: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Performs the OAUAI discretization for each instance in the batch.
 
         `deadline` is an absolute `time.monotonic()` deadline from the caller, combined with
-        this discretizer's own `time_limit`.
+        this discretizer's own `time_limit`. `logits` are the network outputs before the
+        sigmoid (passed by the inference engines); if given, uncertainty is ranked by |logit|,
+        which orders variables as |p - 0.5| does but still separates them when the
+        probabilities have saturated to exactly 0 or 1 in floating point.
         """
         deadline = min_deadline(deadline, deadline_from(self.time_limit))
         num_examples, num_vars = prob_outputs.shape
@@ -115,7 +119,12 @@ class OAUAI(BaseDiscretizer):
                 continue
 
             # Find the k most uncertain query variables
-            certainty = torch.abs(sample_probs - 0.5)
+            if logits is not None:
+                # |logit - logit(threshold)| orders the variables as |p - threshold| does
+                center = torch.logit(torch.tensor(self.threshold, dtype=torch.float64))
+                certainty = torch.abs(logits[i].detach().to(torch.float64) - center.to(logits.device))
+            else:
+                certainty = torch.abs(sample_probs - self.threshold).to(torch.float64)
             # Mask out non-query variables so they are not selected
             certainty[~sample_query_mask] = float("inf")
 
@@ -132,7 +141,9 @@ class OAUAI(BaseDiscretizer):
                 continue
 
             if k > 10 and not self._warned_large_k:
-                print(f"Warning: k={k} may lead to slow performance (2^{k} evaluations per sample).")
+                print(
+                    f"Warning: k={k} may lead to slow performance (2^{k} evaluations per sample)."
+                )
                 self._warned_large_k = True
 
             if k not in binary_assignments:
@@ -147,7 +158,9 @@ class OAUAI(BaseDiscretizer):
             base_assignment[:, top_k_indices] = binary_assignments_k
 
             # Score all candidates and find the best one
-            candidate_unobs = None if sample_unobs is None else sample_unobs.expand_as(base_assignment)
+            candidate_unobs = (
+                None if sample_unobs is None else sample_unobs.expand_as(base_assignment)
+            )
             candidate_scores = evaluate_log_likelihood(
                 self.pgm_evaluator, base_assignment, candidate_unobs
             )

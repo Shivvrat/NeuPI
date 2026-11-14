@@ -142,6 +142,7 @@ class SinglePassInferenceEngine(BaseInferenceModule):
             evidence_mask,
             unobs_mask,
             deadline=discretizer_deadline,
+            logits=raw_predictions,
         )
         timing = {
             "elapsed_seconds": time.monotonic() - start,

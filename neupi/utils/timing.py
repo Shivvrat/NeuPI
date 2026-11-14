@@ -7,7 +7,7 @@ which stop searching when the deadline passes and return their best incumbent.
 
 import inspect
 import time
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 
 def validate_time_limit(time_limit: Optional[float], name: str = "time_limit") -> Optional[float]:
@@ -78,19 +78,32 @@ def expired(deadline: Optional[float]) -> bool:
     return deadline is not None and time.monotonic() >= deadline
 
 
-def accepts_deadline(fn: Callable) -> bool:
-    """Whether `fn` (a discretizer) takes a `deadline` keyword argument."""
+def accepts_keyword(fn: Callable, name: str) -> bool:
+    """Whether `fn` (a discretizer) takes the keyword argument `name`."""
     try:
         params = inspect.signature(fn).parameters
     except (TypeError, ValueError):
         return False
-    return "deadline" in params or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
-    )
+    return name in params or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
 
-def call_discretizer(discretizer: Callable, *args, deadline: Optional[float] = None):
-    """Calls a discretizer, passing the deadline only if it supports one."""
-    if deadline is not None and accepts_deadline(discretizer):
-        return discretizer(*args, deadline=deadline)
-    return discretizer(*args)
+def accepts_deadline(fn: Callable) -> bool:
+    """Whether `fn` (a discretizer) takes a `deadline` keyword argument."""
+    return accepts_keyword(fn, "deadline")
+
+
+def call_discretizer(
+    discretizer: Callable, *args, deadline: Optional[float] = None, logits: Optional[Any] = None
+):
+    """
+    Calls a discretizer, passing the deadline and the network's logits only if it takes them.
+
+    The logits let search discretizers rank variables by confidence when the probabilities
+    have saturated to exactly 0 or 1 in floating point.
+    """
+    kwargs: Dict[str, Any] = {}
+    if deadline is not None and accepts_keyword(discretizer, "deadline"):
+        kwargs["deadline"] = deadline
+    if logits is not None and accepts_keyword(discretizer, "logits"):
+        kwargs["logits"] = logits
+    return discretizer(*args, **kwargs)

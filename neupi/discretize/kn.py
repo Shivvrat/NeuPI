@@ -11,6 +11,46 @@ from neupi.utils.timing import deadline_from, expired, min_deadline, validate_ti
 from .cython_kn.kn_binary_vectors import cython_process_assignments
 
 
+def k_nearest_from_logits(logits: np.ndarray, k: int) -> np.ndarray:
+    """
+    The k binary vectors nearest to sigmoid(logits) in L1 distance (Algorithm 1 of SINE),
+    computed without rounding the probabilities.
+
+    D(q, b) = sum_i |q_i - b_i| is a constant plus |2 q_i - 1| = 1 - 2 e_i for every variable
+    where b_i differs from the thresholded value, with e_i = sigmoid(-|logit_i|). The beam
+    search of Algorithm 1 runs over these flips with the cost of a set of flips kept as
+    (number of flips - 2 * sum of e_i), ties in float64 broken by the larger sum of e_i, so
+    that near-saturated probabilities (which round to exactly 0 or 1) keep their order.
+
+    Returns an array of shape (min(k, 2^n), n) of 0/1 values, nearest first.
+    """
+    logits = np.asarray(logits, dtype=np.float64)
+    n = logits.shape[0]
+    base = logits >= 0
+    e = 1.0 / (
+        1.0 + np.exp(np.abs(logits))
+    )  # sigmoid(-|logit|), the distance to the nearer of 0 and 1
+    count = np.zeros(1, dtype=np.int64)
+    total_e = np.zeros(1)
+    parents = []
+    flips = []
+    for i in range(n):
+        # Every partial assignment either keeps variable i at its thresholded value or flips it
+        count_new = np.concatenate([count, count + 1])
+        e_new = np.concatenate([total_e, total_e + e[i]])
+        order = np.lexsort((-e_new, count_new - 2.0 * e_new))[:k]
+        parents.append(order % len(count))
+        flips.append(order >= len(count))
+        count, total_e = count_new[order], e_new[order]
+    # Walk back through the beams to recover the flipped variables of each final assignment
+    candidates = np.tile(base, (len(count), 1))
+    index = np.arange(len(count))
+    for i in range(n - 1, -1, -1):
+        candidates[:, i] ^= flips[i][index]
+        index = parents[i][index]
+    return candidates.astype(np.int8)
+
+
 @register("discretizer_knn")
 class KNearestDiscretizer(BaseDiscretizer):
     """
@@ -63,6 +103,7 @@ class KNearestDiscretizer(BaseDiscretizer):
         evidence_mask: Optional[torch.Tensor] = None,
         unobs_mask: Optional[torch.Tensor] = None,
         deadline: Optional[float] = None,
+        logits: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Selects k-nearest binary vectors for each continuous output from the NN and selects the best one.
@@ -75,6 +116,10 @@ class KNearestDiscretizer(BaseDiscretizer):
             unobs_mask (torch.Tensor): Boolean mask for unobserved variables.
             deadline (float, optional): Absolute `time.monotonic()` deadline from the caller;
                 combined with this discretizer's own `time_limit`.
+            logits (torch.Tensor, optional): The network outputs before the sigmoid (passed
+                by the inference engines). If given, the distances are computed from them
+                (`k_nearest_from_logits`), so probabilities that have saturated to exactly 0
+                or 1 in floating point are still ordered correctly.
 
         Returns:
             torch.Tensor: The final discrete assignments.
@@ -96,14 +141,22 @@ class KNearestDiscretizer(BaseDiscretizer):
             # Nothing to search for a query without query variables
             if len(query_indices[i]) == 0:
                 continue
-            # The Cython helper takes a float32 buffer
-            query_probs_np = (
-                prob_outputs[i, query_indices[i]].detach().cpu().numpy().astype(np.float32, copy=False)
-            )
             k = resolve_k(self.k, len(query_indices[i]), self.max_k)
-
-            # Get k candidate binary assignments from the Cython helper
-            _, candidate_np = cython_process_assignments(query_probs_np, k)
+            if logits is not None:
+                candidate_np = k_nearest_from_logits(
+                    logits[i, query_indices[i]].detach().cpu().numpy(), k
+                )
+            else:
+                # The Cython helper takes a float32 buffer
+                query_probs_np = (
+                    prob_outputs[i, query_indices[i]]
+                    .detach()
+                    .cpu()
+                    .numpy()
+                    .astype(np.float32, copy=False)
+                )
+                # Get k candidate binary assignments from the Cython helper
+                _, candidate_np = cython_process_assignments(query_probs_np, k)
             candidates = torch.tensor(candidate_np, dtype=dtype, device=device)
 
             best_score = torch.tensor(float("-inf"), device=device)
